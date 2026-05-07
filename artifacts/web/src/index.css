@@ -1,0 +1,279 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-border: hsl(var(--border));
+
+  --font-pixel: 'Press Start 2P', cursive;
+  --font-terminal: 'Inter', 'JetBrains Mono', sans-serif;
+}
+
+:root {
+  /* Twilight navy — lightened for warm Aurora Wellness vibe */
+  --background: 234 48% 13%;
+  /* Slightly lighter card surface */
+  --card: 236 44% 18%;
+  /* Warm light text */
+  --foreground: 248 80% 96%;
+
+  /* Soft Violet / Lavender — #8B5CF6 */
+  --primary: 258 90% 66%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Indigo secondary */
+  --secondary: 242 60% 40%;
+  --secondary-foreground: 0 0% 100%;
+
+  /* Warm Coral / Rose — #FB7185 */
+  --accent: 352 96% 72%;
+  --accent-foreground: 0 0% 100%;
+
+  /* Muted — soft periwinkle */
+  --muted: 232 40% 22%;
+  --muted-foreground: 230 30% 68%;
+
+  --border: 232 42% 28%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+    background: #0F172A;
+    font-family: 'Inter', 'JetBrains Mono', sans-serif;
+    font-size: 14px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-terminal font-bold;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Aurora background blobs — soft glowing orbs
+────────────────────────────────────────────────────────── */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+}
+
+/* Circle 1 — rose-500/20 — top left */
+.aurora-blob-1 {
+  width: 384px;
+  height: 384px;
+  background: rgba(244, 63, 94, 0.20);
+  top: -96px;
+  left: -96px;
+  animation: aurora-drift-1 18s ease-in-out infinite;
+}
+
+/* Circle 2 — indigo-500/20 — bottom right */
+.aurora-blob-2 {
+  width: 384px;
+  height: 384px;
+  background: rgba(99, 102, 241, 0.20);
+  bottom: -96px;
+  right: -96px;
+  animation: aurora-drift-2 22s ease-in-out infinite;
+}
+
+/* Circle 3 — teal-400/10 — center */
+.aurora-blob-3 {
+  width: 256px;
+  height: 256px;
+  background: rgba(45, 212, 191, 0.10);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: aurora-drift-3 26s ease-in-out infinite;
+}
+
+@keyframes aurora-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, 40px) scale(1.08); }
+  66%       { transform: translate(-30px, 60px) scale(0.95); }
+}
+
+@keyframes aurora-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(-50px, -40px) scale(1.06); }
+  70%       { transform: translate(40px, -20px) scale(0.96); }
+}
+
+@keyframes aurora-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.10; }
+  50%       { transform: translate(-40px, -30px) scale(1.12); opacity: 0.15; }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Glass panel utility — premium warm frosted glass
+   Warm bg colors bleed through the translucent surface
+────────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.glass-panel-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.glass-panel-warm {
+  background: rgba(251, 113, 133, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(251, 113, 133, 0.18);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Soft glow utilities — warm, not harsh
+────────────────────────────────────────────────────────── */
+.text-shadow-violet {
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.7), 0 0 28px rgba(139, 92, 246, 0.3);
+}
+
+.text-shadow-coral {
+  text-shadow: 0 0 12px rgba(251, 113, 133, 0.7), 0 0 28px rgba(251, 113, 133, 0.3);
+}
+
+.glow-violet {
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.3), 0 0 32px rgba(139, 92, 246, 0.12);
+}
+
+.glow-coral {
+  box-shadow: 0 0 16px rgba(251, 113, 133, 0.3), 0 0 32px rgba(251, 113, 133, 0.12);
+}
+
+.glow-mint {
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.3), 0 0 32px rgba(52, 211, 153, 0.12);
+}
+
+/* Keep legacy aliases for components that still reference them */
+.text-shadow-neon   { text-shadow: 0 0 12px rgba(139, 92, 246, 0.7), 0 0 28px rgba(139, 92, 246, 0.3); }
+.text-shadow-magenta { text-shadow: 0 0 12px rgba(251, 113, 133, 0.7), 0 0 28px rgba(251, 113, 133, 0.3); }
+.glow-cyan    { box-shadow: 0 0 16px rgba(139, 92, 246, 0.3), 0 0 32px rgba(139, 92, 246, 0.12); }
+.glow-magenta { box-shadow: 0 0 16px rgba(251, 113, 133, 0.3), 0 0 32px rgba(251, 113, 133, 0.12); }
+
+/* ──────────────────────────────────────────────────────────
+   Aura Orb — glowing animated companion orb
+────────────────────────────────────────────────────────── */
+.aura-orb {
+  position: relative;
+  border-radius: 50%;
+}
+
+.aura-orb::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35) 0%, rgba(251, 113, 133, 0.15) 50%, transparent 70%);
+  animation: orb-pulse 3s ease-in-out infinite;
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+
+.orb-breathe {
+  animation: orb-pulse 4s ease-in-out infinite;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Rotating scan ring for camera HUD
+────────────────────────────────────────────────────────── */
+@keyframes scan-ring {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.scan-ring      { animation: scan-ring 3s linear infinite; }
+.scan-ring-slow { animation: scan-ring 6s linear infinite; animation-direction: reverse; }
+
+/* ──────────────────────────────────────────────────────────
+   Wellness Milestone card — celebratory receipt treatment
+────────────────────────────────────────────────────────── */
+.milestone-card {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(251, 113, 133, 0.05) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+}
+
+.milestone-card-mint {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Scrollbar — aurora themed
+────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: rgba(139, 92, 246, 0.04); }
+::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.35); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.6); }
+
+/* ──────────────────────────────────────────────────────────
+   HRV-reactive border pulse
+────────────────────────────────────────────────────────── */
+@keyframes neon-border-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+@keyframes neon-pulse-hrv {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px currentColor; }
+  50%       { opacity: 0.7; box-shadow: 0 0 16px currentColor; }
+}
+
+.neon-border-pulse { animation: neon-border-pulse 2s ease-in-out infinite; }
+.neon-pulse-hrv    { animation: neon-pulse-hrv 3s ease-in-out infinite; }
+
+/* ──────────────────────────────────────────────────────────
+   Button — warm pill/rounded style
+────────────────────────────────────────────────────────── */
+.btn-aurora {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(251, 113, 133, 0.15) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.btn-aurora:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.38) 0%, rgba(251, 113, 133, 0.22) 100%);
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
+}

@@ -1,0 +1,342 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: receipts
+    description: Work receipt operations
+  - name: filecoin
+    description: Filecoin / Synapse storage operations
+  - name: aura
+    description: AURA AI companion chat
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /receipts:
+    get:
+      operationId: listReceipts
+      tags: [receipts]
+      summary: List work receipts
+      description: Returns all work receipts for a given nullifier hash
+      parameters:
+        - name: nullifier
+          in: query
+          required: true
+          schema:
+            type: string
+          description: World ID nullifier hash to filter receipts by
+      responses:
+        "200":
+          description: List of receipts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkReceipt"
+    post:
+      operationId: createReceipt
+      tags: [receipts]
+      summary: Create a work receipt
+      description: Store a new ERC-8004 work receipt signed by the Companion Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReceiptBody"
+      responses:
+        "201":
+          description: Created receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkReceipt"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /aura/chat:
+    post:
+      operationId: auraChat
+      tags: [aura]
+      summary: Chat with AURA AI companion
+      description: Sends a message to the AURA AI companion with biometric context. Returns an AI-generated response. Falls back to rule-based response when GEMINI_API_KEY is absent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuraChatRequest"
+      responses:
+        "200":
+          description: AURA response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuraChatResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /filecoin/upload:
+    post:
+      operationId: uploadToFilecoin
+      tags: [filecoin]
+      summary: Upload receipt JSON to Filecoin via Synapse/web3.storage
+      description: Uploads the signed ERC-8004 receipt payload to Filecoin warm storage. Returns a real PieceCID when SYNAPSE_API_KEY is configured, or status=pending when not.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilecoinUploadBody"
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilecoinUploadResult"
+        "502":
+          description: Upload failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    SessionStats:
+      type: object
+      properties:
+        durationSeconds:
+          type: number
+          description: Session duration in seconds
+        apm:
+          type: number
+          description: Actions per minute tracked during session
+        hrv:
+          type: number
+          description: Heart rate variability reading
+        strain:
+          type: number
+          description: Whoop strain score
+        focusScore:
+          type: number
+          description: Computed focus score (0-100)
+      required:
+        - durationSeconds
+        - apm
+        - hrv
+        - strain
+        - focusScore
+    WorkReceipt:
+      type: object
+      properties:
+        id:
+          type: integer
+        nullifierHash:
+          type: string
+          description: World ID nullifier hash identifying the user
+        sessionStats:
+          $ref: "#/components/schemas/SessionStats"
+        companionSignature:
+          type: string
+          description: HMAC signature from the Companion Agent
+        receiptCid:
+          type: string
+          description: Filecoin CID of the stored receipt (if available)
+        cidStatus:
+          type: string
+          enum: [pending, stored, failed]
+          description: Storage status of the receipt on Filecoin
+        physicalIntegrity:
+          type: boolean
+          description: True if phone stayed stationary and camera detected a human face for the entire session
+        isDemo:
+          type: boolean
+          description: True when the receipt was created during a 60-second guided Demo Mode session
+        receiptType:
+          type: string
+          enum: [work, insight]
+          description: Type of receipt — work (focus session) or insight (AURA AI recommendation)
+        insightText:
+          type: string
+          description: The AURA AI recommendation text (only present for insight receipts)
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - nullifierHash
+        - sessionStats
+        - companionSignature
+        - createdAt
+    CreateReceiptBody:
+      type: object
+      properties:
+        nullifierHash:
+          type: string
+        sessionStats:
+          $ref: "#/components/schemas/SessionStats"
+        companionSignature:
+          type: string
+        receiptCid:
+          type: string
+        cidStatus:
+          type: string
+          enum: [pending, stored, failed]
+          description: Storage status of the receipt on Filecoin
+        physicalIntegrity:
+          type: boolean
+          description: True if phone stayed stationary and camera detected a human face for the entire session
+        isDemo:
+          type: boolean
+          description: True when the receipt was created during a 60-second guided Demo Mode session
+        receiptType:
+          type: string
+          enum: [work, insight]
+          description: Type of receipt — work (focus session) or insight (AURA AI recommendation)
+        insightText:
+          type: string
+          description: The AURA AI recommendation text (only present for insight receipts)
+      required:
+        - nullifierHash
+        - sessionStats
+        - companionSignature
+    AuraBioContext:
+      type: object
+      description: Live biometric snapshot sent with each AURA chat request
+      properties:
+        hrv:
+          type: number
+        strain:
+          type: number
+        apm:
+          type: number
+        focusScore:
+          type: number
+        postureWarning:
+          type: boolean
+        isSessionActive:
+          type: boolean
+        sessionDurationSeconds:
+          type: number
+        hourOfDay:
+          type: number
+      required:
+        - hrv
+        - strain
+        - apm
+        - focusScore
+        - postureWarning
+        - isSessionActive
+        - sessionDurationSeconds
+        - hourOfDay
+    AuraChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+    AuraChatRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The user's message to AURA
+        bioContext:
+          $ref: "#/components/schemas/AuraBioContext"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuraChatMessage"
+          description: Last 10 messages in the current session
+        recentReceiptSummaries:
+          type: array
+          items:
+            type: string
+          description: Concise text summaries of the last 3 session receipts for AURA context
+      required:
+        - message
+        - bioContext
+    AuraChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          description: AURA's text response
+        fallback:
+          type: boolean
+          description: True when the response was generated by rule-based fallback (no Gemini key)
+      required:
+        - response
+        - fallback
+    FilecoinUploadBody:
+      type: object
+      description: The signed ERC-8004 receipt payload to upload
+      additionalProperties: true
+    FilecoinUploadResult:
+      type: object
+      properties:
+        cid:
+          type: string
+          nullable: true
+          description: IPFS/Filecoin CID of the uploaded receipt (null when status=pending or failed)
+        gateway_url:
+          type: string
+          nullable: true
+          description: Public IPFS gateway URL to resolve the receipt
+        status:
+          type: string
+          enum: [stored, pending, failed]
+          description: Upload result status
+        message:
+          type: string
+          description: Human-readable status message (set when status is not stored)
+      required:
+        - cid
+        - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required:
+        - error
