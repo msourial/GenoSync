@@ -5,7 +5,7 @@ import { signRequest } from "@worldcoin/idkit-server";
 const router = Router();
 
 const APP_ID = process.env["WORLD_ID_APP_ID"] as `app_${string}` | undefined;
-const ACTION = process.env["WORLD_ID_ACTION"] ?? "bio-ledger-verify";
+const ACTION = process.env["WORLD_ID_ACTION"] ?? "genosync-verify";
 
 // Prefer explicitly-registered RP keys. When absent, generate an ephemeral key pair so the
 // IDKit widget can open with just WORLD_ID_APP_ID + WORLD_ID_ACTION as required.

@@ -104,7 +104,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       .then((r) => r.json())
       .then((cfg: WorldIdConfig) => setWorldIdConfig(cfg))
       .catch(() =>
-        setWorldIdConfig({ configured: false, app_id: null, action: 'bio-ledger-verify', rp_id: null })
+        setWorldIdConfig({ configured: false, app_id: null, action: 'genosync-verify', rp_id: null })
       );
   }, []);
 
@@ -384,7 +384,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
           </motion.div>
 
           <h1 className="font-pixel text-xl sm:text-2xl mb-1 tracking-widest text-foreground">
-            Bio-Ledger
+            GenoSync
           </h1>
           <h2 className="font-terminal text-sm sm:text-base mb-1 font-semibold" style={{ color: '#a78bfa' }}>
             Be Productive. Stay Healthy.
@@ -535,7 +535,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                     </div>
 
                     <div className="space-y-2 mb-4">
-                      <p className="font-terminal text-[11px] text-muted-foreground/80 uppercase tracking-wider">Bio-Ledger requests access to:</p>
+                      <p className="font-terminal text-[11px] text-muted-foreground/80 uppercase tracking-wider">GenoSync requests access to:</p>
                       {[
                         'Sign ERC-8004 wellness receipts',
                         'Store receipt signatures on-chain',

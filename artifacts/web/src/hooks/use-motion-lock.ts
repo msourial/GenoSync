@@ -45,7 +45,7 @@ export function useMotionLock(
       );
 
       if (magnitude > MOTION_THRESHOLD) {
-        console.log('[Bio-Ledger] Interruption Event: motion lock triggered', {
+        console.log('[GenoSync] Interruption Event: motion lock triggered', {
           magnitude: magnitude.toFixed(3),
           threshold: MOTION_THRESHOLD,
           ts: Date.now(),

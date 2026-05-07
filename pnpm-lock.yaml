@@ -252,7 +252,7 @@ importers:
         specifier: 3.1.0
         version: 3.1.0
 
-  artifacts/bio-ledger:
+  artifacts/genosync:
     dependencies:
       '@mediapipe/tasks-vision':
         specifier: ^0.10.34
