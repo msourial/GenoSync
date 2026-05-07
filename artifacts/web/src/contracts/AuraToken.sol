@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * AURA Token — Sovereign Wellness Rewards
- * Minted by Bio-Ledger when users complete verified health challenges.
+ * Minted by GenoSync when users complete verified health challenges.
  * 1 XP = 1 AURA token.
  * Deployed on Flow EVM Testnet (Chain ID: 545)
  */

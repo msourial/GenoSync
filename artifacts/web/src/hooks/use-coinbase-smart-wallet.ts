@@ -6,7 +6,7 @@ import {
 } from '@/lib/coinbase-smart-wallet';
 import type { EIP1193Provider } from 'viem';
 
-const STORAGE_KEY = 'bio_ledger_cbw_address';
+const STORAGE_KEY = 'genosync_cbw_address';
 
 export type CoinbaseSmartWalletState = {
   address: `0x${string}` | null;

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Bioledger Local Development Deployment Script using tsx
+# GenoSync Local Development Deployment Script using tsx
 # This script starts the backend API and frontend locally using tsx for TypeScript execution
 
 set -e
 
-echo "🧬 Starting Bioledger Local Development Environment..."
+echo "🧬 Starting GenoSync Local Development Environment..."
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -82,7 +82,7 @@ sleep 5
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}🎉 Bioledger is running locally!${NC}"
+echo -e "${GREEN}🎉 GenoSync is running locally!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${BLUE}📊 API Server:${NC} http://localhost:3000"

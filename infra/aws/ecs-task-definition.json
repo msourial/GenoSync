@@ -1,11 +1,11 @@
 {
-  "family": "bioledger-api",
+  "family": "genosync-api",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/bioledger-ecs-execution",
-  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/bioledger-ecs-task",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/genosync-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/genosync-ecs-task",
   "runtimePlatform": {
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
@@ -13,19 +13,19 @@
   "containerDefinitions": [
     {
       "name": "api",
-      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/bioledger-api:latest",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/genosync-api:latest",
       "essential": true,
       "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
       "environment": [
         { "name": "PORT", "value": "8080" },
         { "name": "NODE_ENV", "value": "production" },
         { "name": "AWS_REGION", "value": "REGION" },
-        { "name": "BIOLEDGER_KMS_KEY_ID", "value": "alias/bioledger-userdata" }
+        { "name": "GENOSYNC_KMS_KEY_ID", "value": "alias/genosync-userdata" }
       ],
       "secrets": [
         {
           "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:bioledger/db-url"
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:genosync/db-url"
         }
       ],
       "healthCheck": {
@@ -38,7 +38,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/bioledger-api",
+          "awslogs-group": "/ecs/genosync-api",
           "awslogs-region": "REGION",
           "awslogs-stream-prefix": "api",
           "awslogs-create-group": "true"

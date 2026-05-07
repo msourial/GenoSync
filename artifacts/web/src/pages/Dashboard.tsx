@@ -154,7 +154,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     try {
       const res = await fetch(url);
       if (!res.ok) {
-        console.error('[Bio-Ledger] Export failed — server returned', res.status);
+        console.error('[GenoSync] Export failed — server returned', res.status);
         return;
       }
       const blob = await res.blob();
@@ -165,7 +165,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       a.click();
       URL.revokeObjectURL(objectUrl);
     } catch (err) {
-      console.error('[Bio-Ledger] Export failed', err);
+      console.error('[GenoSync] Export failed', err);
     }
   }, []);
 
@@ -184,7 +184,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     if (isDemoRef.current) return; // Don't interrupt demo mode
     setIsSessionActive(false);
     physicalIntegrityRef.current = false;
-    console.log('[Bio-Ledger] Interruption Event: focus timer paused');
+    console.log('[GenoSync] Interruption Event: focus timer paused');
   }, []);
   const motionLock = useMotionLock(isSessionActive, handleMotionInterrupt);
 
@@ -282,7 +282,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       presenceLostAlerted.current = true;
       setIsSessionActive(false);
       physicalIntegrityRef.current = false;
-      console.log('[Bio-Ledger] Sovereign Presence Lost — flow paused');
+      console.log('[GenoSync] Sovereign Presence Lost — flow paused');
     }
     if (!presenceLost) {
       presenceLostAlerted.current = false;
@@ -458,7 +458,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     }
 
     // Attempt to mint AURA tokens on the active chain (Base / Base Sepolia)
-    const cbwKind = localStorage.getItem('bio_ledger_wallet_kind') === 'coinbase-smart-wallet';
+    const cbwKind = localStorage.getItem('genosync_wallet_kind') === 'coinbase-smart-wallet';
     let provider: unknown = null;
     if (walletAddress && cbwKind) {
       try {
@@ -700,7 +700,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       );
     } catch (err) {
       // Safety net: always clear filing state so user isn't stuck
-      console.error('[Bio-Ledger] Session complete error:', err);
+      console.error('[GenoSync] Session complete error:', err);
       setIsFiling(false);
       setFilingPhase(null);
       setTimeLeft(POMODORO_TIME);
@@ -1104,7 +1104,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
             });
             console.log('🧠 Neurotech: Meditation receipt filed');
           } catch (err) {
-            console.warn('[Bio-Ledger] Meditation receipt signing failed:', err);
+            console.warn('[GenoSync] Meditation receipt signing failed:', err);
           }
         }}
         hrv={hrv}

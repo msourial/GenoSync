@@ -109,7 +109,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       .then((r) => r.json())
       .then((cfg: WorldIdConfig) => setWorldIdConfig(cfg))
       .catch(() =>
-        setWorldIdConfig({ configured: false, app_id: null, action: 'bio-ledger-verify', rp_id: null })
+        setWorldIdConfig({ configured: false, app_id: null, action: 'genosync-verify', rp_id: null })
       );
   }, []);
 
@@ -133,7 +133,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     if (worldIdConfig === null) return;
     setVerifyError(null);
 
-    const existing = localStorage.getItem('bio_ledger_nullifier');
+    const existing = localStorage.getItem('genosync_nullifier');
 
     if (!worldIdConfig.configured) {
       runSimulation(existing ?? undefined);
@@ -192,7 +192,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     }
 
     const data = await verifyRes.json() as { nullifier_hash: string };
-    localStorage.setItem('bio_ledger_nullifier', data.nullifier_hash);
+    localStorage.setItem('genosync_nullifier', data.nullifier_hash);
     setNullifier(data.nullifier_hash);
   }, []);
 
@@ -226,7 +226,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
 
     const addr = privy.user.wallet.address;
     setWalletAddress(addr);
-    localStorage.setItem('bio_ledger_wallet_address', addr);
+    localStorage.setItem('genosync_wallet_address', addr);
     setPhase('wallet-done');
   }, [phase, privy.authenticated, privy.user?.wallet?.address]);
 
@@ -235,8 +235,8 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     if (phase !== 'wallet-connect') return;
     if (!cbw.address) return;
     setWalletAddress(cbw.address);
-    localStorage.setItem('bio_ledger_wallet_address', cbw.address);
-    localStorage.setItem('bio_ledger_wallet_kind', 'coinbase-smart-wallet');
+    localStorage.setItem('genosync_wallet_address', cbw.address);
+    localStorage.setItem('genosync_wallet_kind', 'coinbase-smart-wallet');
     setPhase('wallet-done');
   }, [phase, cbw.address]);
 
@@ -244,8 +244,8 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     const addr = await cbw.connect();
     if (addr) {
       setWalletAddress(addr);
-      localStorage.setItem('bio_ledger_wallet_address', addr);
-      localStorage.setItem('bio_ledger_wallet_kind', 'coinbase-smart-wallet');
+      localStorage.setItem('genosync_wallet_address', addr);
+      localStorage.setItem('genosync_wallet_kind', 'coinbase-smart-wallet');
       setPhase('wallet-done');
     }
   };
@@ -409,7 +409,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
           </motion.div>
 
           <h1 className="font-pixel text-xl sm:text-2xl mb-1 tracking-widest text-foreground">
-            Bio-Ledger
+            GenoSync
           </h1>
           <h2 className="font-terminal text-sm sm:text-base mb-1 font-semibold" style={{ color: '#a78bfa' }}>
             Be Productive. Stay Healthy.
@@ -492,7 +492,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 <button
                   onClick={() => {
                     const hash = generateNullifier();
-                    localStorage.setItem('bio_ledger_nullifier', hash);
+                    localStorage.setItem('genosync_nullifier', hash);
                     onVerify({
                       nullifierHash: hash,
                       walletAddress: null,
@@ -581,7 +581,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                        <span className="font-terminal text-sm text-blue-300/80">Sign Bio-Ledger receipts gas-free</span>
+                        <span className="font-terminal text-sm text-blue-300/80">Sign GenoSync receipts gas-free</span>
                       </div>
                     </div>
 

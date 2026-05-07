@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: bioledger
-      POSTGRES_PASSWORD: bioledger_local
-      POSTGRES_DB: bioledger
+      POSTGRES_USER: genosync
+      POSTGRES_PASSWORD: genosync_local
+      POSTGRES_DB: genosync
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bioledger"]
+      test: ["CMD-SHELL", "pg_isready -U genosync"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://bioledger:bioledger_local@postgres:5432/bioledger
+      DATABASE_URL: postgresql://genosync:genosync_local@postgres:5432/genosync
       CORS_ORIGIN: "http://localhost:5173,http://localhost:3001"
     ports:
       - "3000:3000"

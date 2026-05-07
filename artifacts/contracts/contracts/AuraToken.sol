@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
- * AURA Token — Sovereign Wellness Rewards (Bioledger)
+ * AURA Token — Sovereign Wellness Rewards (GenoSync)
  *
- * Minted by Bioledger when users complete verified health/bio events.
+ * Minted by GenoSync when users complete verified health/bio events.
  * 1 XP = 1 AURA token (18 decimals).
  *
  * Deployed on Base (Coinbase L2). EVM-compatible — same Solidity as Flow EVM.
@@ -40,7 +40,7 @@ contract AuraToken is ERC20, Ownable {
     }
 
     /**
-     * Mint with a Bioledger receipt id (e.g. KMS-encrypted bio record id hash).
+     * Mint with a GenoSync receipt id (e.g. KMS-encrypted bio record id hash).
      * Lets the indexer correlate on-chain rewards with off-chain encrypted health events.
      */
     function mintWithReceipt(address to, uint256 amount, bytes32 receiptId) external onlyMinter {

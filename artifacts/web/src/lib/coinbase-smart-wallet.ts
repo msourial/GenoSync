@@ -8,7 +8,7 @@ let cachedProvider: ProviderInterface | null = null;
 function ensureSdk() {
   if (cachedSdk) return cachedSdk;
   cachedSdk = createCoinbaseWalletSDK({
-    appName: 'Bioledger',
+    appName: 'GenoSync',
     appLogoUrl: window.location.origin + '/icon-192.png',
     appChainIds: [base.id, baseSepolia.id],
     preference: {

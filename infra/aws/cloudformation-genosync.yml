@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Bioledger — full AWS stack:
+  GenoSync — full AWS stack:
    - KMS key for off-chain bio-data envelope encryption
    - S3 bucket for the React/Vite frontend
    - CloudFront distribution (HTTPS, SPA routing)
@@ -10,7 +10,7 @@ Description: >
 Parameters:
   AppName:
     Type: String
-    Default: bioledger
+    Default: genosync
   Domain:
     Type: String
     Default: ""
@@ -18,10 +18,10 @@ Parameters:
 
 Resources:
   # ----- KMS: encrypts off-chain user health/bio data -----
-  BioledgerUserDataKey:
+  GenoSyncUserDataKey:
     Type: AWS::KMS::Key
     Properties:
-      Description: Bioledger off-chain user health/bio data envelope key
+      Description: GenoSync off-chain user health/bio data envelope key
       EnableKeyRotation: true
       KeyPolicy:
         Version: "2012-10-17"
@@ -40,11 +40,11 @@ Resources:
               - kms:DescribeKey
             Resource: "*"
 
-  BioledgerUserDataKeyAlias:
+  GenoSyncUserDataKeyAlias:
     Type: AWS::KMS::Alias
     Properties:
       AliasName: !Sub "alias/${AppName}-userdata"
-      TargetKeyId: !Ref BioledgerUserDataKey
+      TargetKeyId: !Ref GenoSyncUserDataKey
 
   # ----- S3 frontend bucket -----
   WebBucket:
@@ -145,7 +145,7 @@ Resources:
             Principal: { Service: ecs-tasks.amazonaws.com }
             Action: sts:AssumeRole
       Policies:
-        - PolicyName: bioledger-kms-envelope
+        - PolicyName: genosync-kms-envelope
           PolicyDocument:
             Statement:
               - Effect: Allow
@@ -153,7 +153,7 @@ Resources:
                   - kms:GenerateDataKey
                   - kms:Decrypt
                   - kms:DescribeKey
-                Resource: !GetAtt BioledgerUserDataKey.Arn
+                Resource: !GetAtt GenoSyncUserDataKey.Arn
 
   ApiLogGroup:
     Type: AWS::Logs::LogGroup
@@ -164,17 +164,17 @@ Resources:
 Outputs:
   WebBucketName:
     Value: !Ref WebBucket
-    Description: Use as BIOLEDGER_S3_BUCKET in deploy-frontend.sh
+    Description: Use as GENOSYNC_S3_BUCKET in deploy-frontend.sh
   CloudFrontDistribution:
     Value: !Ref WebDistribution
-    Description: Use as BIOLEDGER_CF_DIST_ID in deploy-frontend.sh
+    Description: Use as GENOSYNC_CF_DIST_ID in deploy-frontend.sh
   CloudFrontDomain:
     Value: !GetAtt WebDistribution.DomainName
   EcrRepoUri:
     Value: !GetAtt ApiRepo.RepositoryUri
   KmsKeyArn:
-    Value: !GetAtt BioledgerUserDataKey.Arn
+    Value: !GetAtt GenoSyncUserDataKey.Arn
   KmsAlias:
-    Value: !Ref BioledgerUserDataKeyAlias
+    Value: !Ref GenoSyncUserDataKeyAlias
   EcsClusterName:
     Value: !Ref EcsCluster

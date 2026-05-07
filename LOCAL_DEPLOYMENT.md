@@ -1,6 +1,6 @@
-# Bioledger Local Deployment Guide
+# GenoSync Local Deployment Guide
 
-This guide covers deploying Bioledger locally for development.
+This guide covers deploying GenoSync locally for development.
 
 ## Quick Start
 
@@ -98,7 +98,7 @@ pnpm install
 Without `DATABASE_URL`, the API uses an in-memory store. For PostgreSQL:
 ```bash
 # Local PostgreSQL
-export DATABASE_URL="postgresql://user:password@localhost:5432/bioledger"
+export DATABASE_URL="postgresql://user:password@localhost:5432/genosync"
 ```
 
 ## Architecture

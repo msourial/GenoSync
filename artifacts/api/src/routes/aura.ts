@@ -6,7 +6,7 @@ import { eq, desc } from "drizzle-orm";
 const router: IRouter = Router();
 
 const AGENT_ID = "AURA-AGENT-V1";
-const HMAC_KEY = "bio-ledger-companion-v1-hackathon-key";
+const HMAC_KEY = "genosync-companion-v1-hackathon-key";
 const HMAC_KEY_FINGERPRINT = Buffer.from(HMAC_KEY).toString("hex").slice(0, 16);
 
 type BioContext = {
@@ -247,7 +247,7 @@ router.get("/aura/manifest", (_req, res) => {
     name: "AURA — Autonomous Unified Response Agent",
     version: "0.1.0-hackathon",
     description:
-      "Sovereign biometric oracle embedded in Bio-Ledger. Monitors operator physiological state, signs verifiable work receipts on Filecoin, and provides proactive health coaching anchored to a World ID nullifier.",
+      "Sovereign biometric oracle embedded in GenoSync. Monitors operator physiological state, signs verifiable work receipts on Filecoin, and provides proactive health coaching anchored to a World ID nullifier.",
     operator_wallet: process.env.AGENT_OPERATOR_WALLET ?? "0x0000000000000000000000000000000000000000",
     erc8004_identity: {
       signing_scheme: "HMAC-SHA256",

@@ -1,4 +1,4 @@
-### Bioledger API — production image for AWS ECS / Fargate ###
+### GenoSync API — production image for AWS ECS / Fargate ###
 
 # ---- builder ----
 FROM node:20-alpine AS builder

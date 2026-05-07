@@ -64,7 +64,7 @@ async function getLandmarker(): Promise<FaceLandmarker> {
           numFaces: 1,
         });
       } catch (gpuErr) {
-        console.warn('[Bio-Ledger] GPU delegate failed, falling back to CPU:', gpuErr);
+        console.warn('[GenoSync] GPU delegate failed, falling back to CPU:', gpuErr);
         return FaceLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
           outputFaceBlendshapes: true,
@@ -99,7 +99,7 @@ async function getPoseLandmarker(): Promise<PoseLandmarker> {
           numPoses: 1,
         });
       } catch (gpuErr) {
-        console.warn('[Bio-Ledger] Pose GPU delegate failed, falling back to CPU:', gpuErr);
+        console.warn('[GenoSync] Pose GPU delegate failed, falling back to CPU:', gpuErr);
         return PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'CPU' },
           runningMode: 'VIDEO',
@@ -299,13 +299,13 @@ export function useCamera(enabled: boolean): UseCameraResult {
       try {
         landmarkerRef.current = await getLandmarker();
       } catch (modelErr) {
-        console.warn('[Bio-Ledger] Face landmarker failed to load, running without face detection:', modelErr);
+        console.warn('[GenoSync] Face landmarker failed to load, running without face detection:', modelErr);
         landmarkerRef.current = null;
       }
       try {
         poseLandmarkerRef.current = await getPoseLandmarker();
       } catch (modelErr) {
-        console.warn('[Bio-Ledger] Pose landmarker failed to load, running without pose detection:', modelErr);
+        console.warn('[GenoSync] Pose landmarker failed to load, running without pose detection:', modelErr);
         poseLandmarkerRef.current = null;
       }
 

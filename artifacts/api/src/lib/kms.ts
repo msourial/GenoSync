@@ -8,7 +8,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { logger } from "./logger";
 
 /**
- * AWS KMS envelope encryption for Bioledger health/bio data.
+ * AWS KMS envelope encryption for GenoSync health/bio data.
  *
  * Pattern:
  *  - KMS generates a 256-bit data key (DEK).
@@ -21,9 +21,9 @@ import { logger } from "./logger";
 
 const REGION = process.env["AWS_REGION"] ?? "us-east-1";
 const KEY_ID =
-  process.env["BIOLEDGER_KMS_KEY_ID"] ??
+  process.env["GENOSYNC_KMS_KEY_ID"] ??
   process.env["AWS_KMS_KEY_ID"] ??
-  "alias/bioledger-userdata";
+  "alias/genosync-userdata";
 
 let cachedClient: KMSClient | null = null;
 
@@ -118,10 +118,10 @@ export async function decryptBioPayload(
 /**
  * Mock-mode fallback for local dev without AWS credentials.
  * Returns a structurally-valid envelope but does NOT call KMS — DO NOT use in production.
- * Activated when BIOLEDGER_KMS_MOCK=1 is set.
+ * Activated when GENOSYNC_KMS_MOCK=1 is set.
  */
 export function isMockMode(): boolean {
-  return process.env["BIOLEDGER_KMS_MOCK"] === "1";
+  return process.env["GENOSYNC_KMS_MOCK"] === "1";
 }
 
 export async function encryptBioPayloadSafe(

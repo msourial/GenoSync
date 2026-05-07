@@ -45,7 +45,7 @@ router.post("/bio/encrypt", async (req: Request, res: Response) => {
     const wallet = String(walletAddress).toLowerCase();
     const envelope = await encryptBioPayloadSafe(plaintext, {
       wallet,
-      app: "bioledger",
+      app: "genosync",
     });
 
     const id = newId();
@@ -113,7 +113,7 @@ router.post("/bio/:id/decrypt", async (req: Request, res: Response) => {
 
     const plaintext = await decryptBioPayloadSafe(record.envelope, {
       wallet: record.walletAddress,
-      app: "bioledger",
+      app: "genosync",
     });
 
     let parsed: unknown;

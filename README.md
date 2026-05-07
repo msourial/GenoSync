@@ -1,8 +1,8 @@
-# Bioledger
+# GenoSync
 
 ### Sovereign Bio-Data — KMS-encrypted, on-chain attested, passkey-secured
 
-> Bioledger lets users own their health & bio data. Every payload is **envelope-encrypted with AWS KMS** before it ever touches storage, every wellness event is **attested on Base (Coinbase L2)**, and users sign in with a **Coinbase Smart Wallet** using FaceID/TouchID — no seed phrases, no extensions.
+> GenoSync lets users own their health & bio data. Every payload is **envelope-encrypted with AWS KMS** before it ever touches storage, every wellness event is **attested on Base (Coinbase L2)**, and users sign in with a **Coinbase Smart Wallet** using FaceID/TouchID — no seed phrases, no extensions.
 
 **Core principle.** The plaintext of a user's bio data should never exist outside an authenticated session. The blockchain is the audit trail; the KMS key is the gatekeeper; the passkey is the user's identity.
 
@@ -16,7 +16,7 @@
 | **AWS KMS encryption** | Envelope encryption (AES-256-GCM) for every off-chain bio payload | [`artifacts/api/src/lib/kms.ts`](artifacts/api/src/lib/kms.ts) |
 | **Base L2 contracts** | `AuraToken` ERC-20 deploys to Base / Base Sepolia (Coinbase L2) | [`artifacts/contracts/`](artifacts/contracts/) |
 | **Coinbase Smart Wallet** | Passkey login (FaceID / TouchID) via `@coinbase/wallet-sdk` | [`artifacts/web/src/lib/coinbase-smart-wallet.ts`](artifacts/web/src/lib/coinbase-smart-wallet.ts) |
-| **Multi-chain switch** | `VITE_BIOLEDGER_CHAIN` selects Base / Base Sepolia / Flow at build time | [`artifacts/web/src/lib/chains.ts`](artifacts/web/src/lib/chains.ts) |
+| **Multi-chain switch** | `VITE_GENOSYNC_CHAIN` selects Base / Base Sepolia / Flow at build time | [`artifacts/web/src/lib/chains.ts`](artifacts/web/src/lib/chains.ts) |
 | **Encrypted bio API** | `POST /api/bio/encrypt`, `POST /api/bio/:id/decrypt`, `GET /api/bio/by-wallet/:address` | [`artifacts/api/src/routes/bio.ts`](artifacts/api/src/routes/bio.ts) |
 
 ---
@@ -27,7 +27,7 @@
 
 ```
                           ┌─────────────────────────────────────────────────┐
-                          │              Browser — Bioledger PWA            │
+                          │              Browser — GenoSync PWA            │
                           │                                                 │
                           │   Coinbase Smart Wallet (Passkey · FaceID)      │
                           │   ────────────────────────────────────────      │
@@ -41,13 +41,13 @@
                                                    │ /api/*
                           ┌────────────────────────▼────────────────────────┐
                           │  Application Load Balancer                      │
-                          │   ─▶ ECS Fargate · bioledger-api task           │
+                          │   ─▶ ECS Fargate · genosync-api task           │
                           │       (Docker image from ECR)                   │
                           └─────┬───────────────────────┬───────────────────┘
                                 │                       │
               ┌─────────────────▼──────────┐   ┌────────▼───────────────────┐
               │  AWS KMS                   │   │  Base (Coinbase L2)        │
-              │  alias/bioledger-userdata  │   │  AuraToken ERC-20          │
+              │  alias/genosync-userdata  │   │  AuraToken ERC-20          │
               │                            │   │   ─ mint(to, amount)        │
               │  GenerateDataKey / Decrypt │   │   ─ mintWithReceipt(        │
               │  EncryptionContext binds   │   │       to, amount, rcpt)     │
@@ -65,7 +65,7 @@
                                                           │
                                                           ▼
         ┌─────────────────────────────────────────────────────────────────┐
-        │                    BIOLEDGER API (ECS Fargate)                  │
+        │                    GENOSYNC API (ECS Fargate)                  │
         │                                                                 │
         │   1.  KMS.GenerateDataKey(KeySpec=AES_256,                      │
         │                          EncryptionContext={wallet,app})        │
@@ -111,7 +111,7 @@
                       │                                 │
                       └──────────────┬──────────────────┘
                                      ▼
-                       Bioledger session: walletAddress
+                       GenoSync session: walletAddress
                                      │
                        Wellness event completes (XP earned)
                                      │
@@ -150,7 +150,7 @@ GenoSync-main/
 │       └── hardhat.config.ts          base + baseSepolia networks
 └── infra/
     └── aws/
-        ├── cloudformation-bioledger.yml   one-shot stack provisioning
+        ├── cloudformation-genosync.yml   one-shot stack provisioning
         ├── deploy-frontend.sh             S3 sync + CloudFront invalidation
         ├── deploy-api.sh                  ECR push + ECS force-redeploy
         ├── ecs-task-definition.json       Fargate task w/ KMS-scoped role
@@ -185,16 +185,16 @@ pnpm install
 cat > artifacts/api/.env <<EOF
 PORT=3000
 NODE_ENV=development
-BIOLEDGER_KMS_MOCK=1
+GENOSYNC_KMS_MOCK=1
 AWS_REGION=us-east-1
-BIOLEDGER_KMS_KEY_ID=alias/bioledger-userdata-local
+GENOSYNC_KMS_KEY_ID=alias/genosync-userdata-local
 EOF
 
 cat > artifacts/web/.env <<EOF
 PORT=5173
 API_PORT=3000
 VITE_API_BASE_URL=
-VITE_BIOLEDGER_CHAIN=base-sepolia
+VITE_GENOSYNC_CHAIN=base-sepolia
 VITE_AURA_TOKEN_ADDRESS=
 EOF
 
@@ -231,7 +231,7 @@ curl -X POST http://localhost:5173/api/bio/<id>/decrypt \
 # {"payload":{"hrv":62,"strain":14.2},...}
 ```
 
-`BIOLEDGER_KMS_MOCK=1` produces an envelope with `kmsKeyId: "MOCK_LOCAL_KEY"` so production code can refuse mock envelopes — drop the flag in any environment that has real AWS credentials.
+`GENOSYNC_KMS_MOCK=1` produces an envelope with `kmsKeyId: "MOCK_LOCAL_KEY"` so production code can refuse mock envelopes — drop the flag in any environment that has real AWS credentials.
 
 ---
 
@@ -241,8 +241,8 @@ curl -X POST http://localhost:5173/api/bio/<id>/decrypt \
 
 ```bash
 aws cloudformation deploy \
-  --template-file infra/aws/cloudformation-bioledger.yml \
-  --stack-name bioledger \
+  --template-file infra/aws/cloudformation-genosync.yml \
+  --stack-name genosync \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -251,19 +251,19 @@ The template provisions:
 
 | Resource | Purpose |
 |---|---|
-| `AWS::KMS::Key` (`alias/bioledger-userdata`) | Customer-managed key, rotation enabled, scoped policy |
+| `AWS::KMS::Key` (`alias/genosync-userdata`) | Customer-managed key, rotation enabled, scoped policy |
 | `AWS::S3::Bucket` (private, OAC) | Vite build artifact storage |
 | `AWS::CloudFront::Distribution` | TLS, edge cache, SPA fallback (`/index.html` for 403/404) |
 | `AWS::ECR::Repository` | API image registry, `ScanOnPush: true` |
 | `AWS::ECS::Cluster` | Fargate cluster |
-| `AWS::IAM::Role` (`bioledger-ecs-task`) | Allowed `kms:GenerateDataKey` / `Decrypt` on the bioledger key only |
-| `AWS::IAM::Role` (`bioledger-ecs-execution`) | Standard ECR pull + CloudWatch logs |
-| `AWS::Logs::LogGroup` (`/ecs/bioledger-api`) | 14-day retention |
+| `AWS::IAM::Role` (`genosync-ecs-task`) | Allowed `kms:GenerateDataKey` / `Decrypt` on the genosync key only |
+| `AWS::IAM::Role` (`genosync-ecs-execution`) | Standard ECR pull + CloudWatch logs |
+| `AWS::Logs::LogGroup` (`/ecs/genosync-api`) | 14-day retention |
 
 Capture the outputs:
 
 ```bash
-aws cloudformation describe-stacks --stack-name bioledger \
+aws cloudformation describe-stacks --stack-name genosync \
   --query "Stacks[0].Outputs" --region us-east-1
 ```
 
@@ -272,18 +272,18 @@ Set as env:
 ```bash
 export AWS_REGION=us-east-1
 export AWS_ACCOUNT_ID=<account-id>
-export BIOLEDGER_S3_BUCKET=<WebBucketName output>
-export BIOLEDGER_CF_DIST_ID=<CloudFrontDistribution output>
-export BIOLEDGER_ECR_REPO=bioledger-api
-export BIOLEDGER_ECS_CLUSTER=bioledger
-export BIOLEDGER_ECS_SERVICE=bioledger-api
+export GENOSYNC_S3_BUCKET=<WebBucketName output>
+export GENOSYNC_CF_DIST_ID=<CloudFrontDistribution output>
+export GENOSYNC_ECR_REPO=genosync-api
+export GENOSYNC_ECS_CLUSTER=genosync
+export GENOSYNC_ECS_SERVICE=genosync-api
 ```
 
 ### Deploy the frontend
 
 ```bash
-export VITE_API_BASE_URL=https://api.bioledger.app
-export VITE_BIOLEDGER_CHAIN=base-sepolia        # or "base" for mainnet
+export VITE_API_BASE_URL=https://api.genosync.app
+export VITE_GENOSYNC_CHAIN=base-sepolia        # or "base" for mainnet
 export VITE_AURA_TOKEN_ADDRESS=0x...            # from contracts deploy
 
 bash infra/aws/deploy-frontend.sh
@@ -343,7 +343,7 @@ The LockScreen step 2 surfaces "Sign in with Passkey" as the recommended option:
 ```ts
 // artifacts/web/src/lib/coinbase-smart-wallet.ts
 const sdk = createCoinbaseWalletSDK({
-  appName: 'Bioledger',
+  appName: 'GenoSync',
   appChainIds: [base.id, baseSepolia.id],
   preference: { options: 'smartWalletOnly' },   // forces smart-wallet creation,
                                                 // not legacy EOA browser extension
@@ -355,7 +355,7 @@ User journey:
 1. User taps **Sign in with Passkey**.
 2. Coinbase Smart Wallet popup opens, prompts FaceID / TouchID via WebAuthn.
 3. Smart-contract wallet is created (or restored) on **Base**, controlled by the device passkey — not a seed phrase.
-4. Wallet address comes back via `eth_requestAccounts`; Bioledger advances to step 3 (wearable connect).
+4. Wallet address comes back via `eth_requestAccounts`; GenoSync advances to step 3 (wearable connect).
 5. Future on-chain calls (`AuraToken.mint`) go through the same provider — gas-free if a paymaster is configured.
 
 Why this matters for a health app: regular users churn at "write down these 12 words." A passkey is biometric and stays inside the device's secure enclave — non-exportable, phishing-resistant, recoverable per Apple/Google account.
@@ -370,13 +370,13 @@ artifacts/api/src/lib/kms.ts
 
   encryptBioPayloadSafe(plaintext, context)            decryptBioPayloadSafe(envelope, context)
     │                                                    │
-    ├─ if BIOLEDGER_KMS_MOCK=1:                          ├─ if envelope.kmsKeyId === "MOCK_LOCAL_KEY":
+    ├─ if GENOSYNC_KMS_MOCK=1:                          ├─ if envelope.kmsKeyId === "MOCK_LOCAL_KEY":
     │     local AES key (DEV ONLY)                       │     local AES decrypt (DEV ONLY)
     │                                                    │
     └─ else: encryptBioPayload                           └─ else: decryptBioPayload
          │                                                    │
          │  KMS.GenerateDataKey({                              │  KMS.Decrypt({
-         │    KeyId: alias/bioledger-userdata,                 │    CiphertextBlob: envelope.encryptedDataKey,
+         │    KeyId: alias/genosync-userdata,                 │    CiphertextBlob: envelope.encryptedDataKey,
          │    KeySpec: "AES_256",                              │    EncryptionContext: { wallet, app }
          │    EncryptionContext: { wallet, app }               │  })
          │  })                                                 │
@@ -422,7 +422,7 @@ Content-Type: application/json
 {
   "id": "bio_movnv8ee_asqa85hj",
   "walletAddress": "0xabc...",
-  "kmsKeyId": "alias/bioledger-userdata",
+  "kmsKeyId": "alias/genosync-userdata",
   "algorithm": "AES-256-GCM",
   "encryptedAt": "2026-05-07T15:48:46.022Z",
   "ciphertextLength": 80
@@ -435,9 +435,9 @@ The Dashboard automatically posts to this endpoint after every wellness challeng
 
 ## Multi-chain switch
 
-`artifacts/web/src/lib/chains.ts` exports an `activeChain` derived from `VITE_BIOLEDGER_CHAIN`:
+`artifacts/web/src/lib/chains.ts` exports an `activeChain` derived from `VITE_GENOSYNC_CHAIN`:
 
-| `VITE_BIOLEDGER_CHAIN` | activeChain | Chain ID | Use |
+| `VITE_GENOSYNC_CHAIN` | activeChain | Chain ID | Use |
 |---|---|---|---|
 | `base` | Base mainnet | 8453 | Production |
 | `base-sepolia` *(default)* | Base Sepolia | 84532 | Demo / testnet |
@@ -473,9 +473,9 @@ Hardhat config supports both `base` (8453) and `baseSepolia` (84532), with auto-
 
 ## Pitch lines
 
-> **Security.** *Bioledger handles HIPAA-class data. Every off-chain payload is envelope-encrypted with AWS KMS before it ever touches a database. Even with full DB access, an attacker sees only ciphertext — they'd need to invoke our KMS key, and CloudTrail logs every call.*
+> **Security.** *GenoSync handles HIPAA-class data. Every off-chain payload is envelope-encrypted with AWS KMS before it ever touches a database. Even with full DB access, an attacker sees only ciphertext — they'd need to invoke our KMS key, and CloudTrail logs every call.*
 
-> **Adoption.** *Healthcare apps fail at "write down these 12 words." Bioledger replaces that with a Coinbase Smart Wallet — FaceID or TouchID, no seed phrase, no extension. The wallet lives on Base, so transactions are sub-cent and gas-free with a paymaster.*
+> **Adoption.** *Healthcare apps fail at "write down these 12 words." GenoSync replaces that with a Coinbase Smart Wallet — FaceID or TouchID, no seed phrase, no extension. The wallet lives on Base, so transactions are sub-cent and gas-free with a paymaster.*
 
 > **Trust.** *Every wellness event ends with two artifacts: an on-chain `mintWithReceipt` event on Base, and a KMS-encrypted bio record off-chain. The receipt id pairs them. You can prove an event happened without ever exposing what the event contained.*
 

@@ -38,7 +38,7 @@ export const baseSepolia = defineChain({
   testnet: true,
 });
 
-const envChain = (import.meta.env.VITE_BIOLEDGER_CHAIN as string | undefined)?.toLowerCase();
+const envChain = (import.meta.env.VITE_GENOSYNC_CHAIN as string | undefined)?.toLowerCase();
 export const activeChain =
   envChain === 'base'
     ? base

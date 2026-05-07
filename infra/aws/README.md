@@ -1,4 +1,4 @@
-# Bioledger — AWS deployment
+# GenoSync — AWS deployment
 
 End-to-end on AWS. No Vercel, no Heroku.
 
@@ -16,12 +16,12 @@ End-to-end on AWS. No Vercel, no Heroku.
                   └────────────────────┬─────────────────────┘
                                        │  /api/*
                   ┌────────────────────▼─────────────────────┐
-                  │  ALB ──▶ ECS Fargate (Bioledger API)     │
-                  │  Image from ECR (bioledger-api)          │
+                  │  ALB ──▶ ECS Fargate (GenoSync API)     │
+                  │  Image from ECR (genosync-api)          │
                   └─────┬────────────────────────────────┬───┘
                         │                                │
        ┌────────────────▼──────────────┐  ┌──────────────▼──────────────┐
-       │  AWS KMS  alias/bioledger-    │  │  Base (Coinbase L2)         │
+       │  AWS KMS  alias/genosync-    │  │  Base (Coinbase L2)         │
        │  userdata — envelope encrypts │  │  AuraToken ERC-20           │
        │  every off-chain bio payload  │  │  Bio receipts on-chain      │
        └───────────────────────────────┘  └─────────────────────────────┘
@@ -32,13 +32,13 @@ End-to-end on AWS. No Vercel, no Heroku.
 ```bash
 # 1. Provision the stack
 aws cloudformation deploy \
-  --template-file infra/aws/cloudformation-bioledger.yml \
-  --stack-name bioledger \
+  --template-file infra/aws/cloudformation-genosync.yml \
+  --stack-name genosync \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 
 # 2. Capture outputs
-aws cloudformation describe-stacks --stack-name bioledger \
+aws cloudformation describe-stacks --stack-name genosync \
   --query "Stacks[0].Outputs" --region us-east-1
 ```
 
@@ -47,19 +47,19 @@ Save the outputs as env vars:
 ```bash
 export AWS_REGION=us-east-1
 export AWS_ACCOUNT_ID=<your-account-id>
-export BIOLEDGER_S3_BUCKET=<WebBucketName output>
-export BIOLEDGER_CF_DIST_ID=<CloudFrontDistribution output>
-export BIOLEDGER_ECR_REPO=bioledger-api
-export BIOLEDGER_ECS_CLUSTER=bioledger
-export BIOLEDGER_ECS_SERVICE=bioledger-api
-export BIOLEDGER_KMS_KEY_ID=alias/bioledger-userdata
+export GENOSYNC_S3_BUCKET=<WebBucketName output>
+export GENOSYNC_CF_DIST_ID=<CloudFrontDistribution output>
+export GENOSYNC_ECR_REPO=genosync-api
+export GENOSYNC_ECS_CLUSTER=genosync
+export GENOSYNC_ECS_SERVICE=genosync-api
+export GENOSYNC_KMS_KEY_ID=alias/genosync-userdata
 ```
 
 ## Deploy the frontend (S3 + CloudFront)
 
 ```bash
-export VITE_API_BASE_URL=https://api.bioledger.app
-export VITE_BIOLEDGER_CHAIN=base-sepolia          # or "base" for mainnet
+export VITE_API_BASE_URL=https://api.genosync.app
+export VITE_GENOSYNC_CHAIN=base-sepolia          # or "base" for mainnet
 export VITE_AURA_TOKEN_ADDRESS=0x...              # output of contracts deploy
 bash infra/aws/deploy-frontend.sh
 ```
@@ -87,12 +87,12 @@ The first deploy needs an ECS service + task definition — register the task de
 
 ## KMS encryption flow
 
-- The API task role (`bioledger-ecs-task`) has `kms:GenerateDataKey` and `kms:Decrypt` on the `alias/bioledger-userdata` key only.
+- The API task role (`genosync-ecs-task`) has `kms:GenerateDataKey` and `kms:Decrypt` on the `alias/genosync-userdata` key only.
 - `POST /api/bio/encrypt` calls `kms:GenerateDataKey` to mint a 256-bit DEK, encrypts the payload locally with AES-256-GCM, persists `{ ciphertext, iv, authTag, encryptedDataKey }`, and zeroes the plaintext DEK from memory.
-- `POST /api/bio/:id/decrypt` calls `kms:Decrypt` on the wrapped DEK (with the same `EncryptionContext: { wallet, app: "bioledger" }`) and decrypts locally.
+- `POST /api/bio/:id/decrypt` calls `kms:Decrypt` on the wrapped DEK (with the same `EncryptionContext: { wallet, app: "genosync" }`) and decrypts locally.
 - Plaintext bio data **never lands at rest** — only the encrypted envelope does. The KMS key cannot be exported.
 
-For local dev without AWS credentials, set `BIOLEDGER_KMS_MOCK=1` to use an in-process AES key (clearly marked `MOCK_LOCAL_KEY` in the envelope so production code can refuse it).
+For local dev without AWS credentials, set `GENOSYNC_KMS_MOCK=1` to use an in-process AES key (clearly marked `MOCK_LOCAL_KEY` in the envelope so production code can refuse it).
 
 ## Pitch line
 
