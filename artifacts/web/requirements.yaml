@@ -6,16 +6,16 @@ packages:
   "tailwind-merge": "Tailwind class merging"
 
 images:
-  - path: "artifacts/genosync/public/images/hero-bg.png"
+  - path: "artifacts/bio-ledger/public/images/hero-bg.png"
     description: "16-bit lo-fi pixel art background showing a dark cyberpunk living room in deep purple and magenta with subtle neon teal glowing monitors"
     aspect_ratio: "16:9"
-  - path: "artifacts/genosync/public/images/avatar.png"
+  - path: "artifacts/bio-ledger/public/images/avatar.png"
     description: "16-bit pixel art main character avatar sitting in a chair, lo-fi cyberpunk style, transparent background"
     aspect_ratio: "1:1"
-  - path: "artifacts/genosync/public/images/companion.png"
+  - path: "artifacts/bio-ledger/public/images/companion.png"
     description: "16-bit pixel art cute floating robot companion AI, glowing neon teal, transparent background"
     aspect_ratio: "1:1"
-  - path: "artifacts/genosync/public/images/vault-logo.png"
+  - path: "artifacts/bio-ledger/public/images/vault-logo.png"
     description: "16-bit pixel art glowing neon teal vault door icon on a deep purple background"
     aspect_ratio: "1:1"
 

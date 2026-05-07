@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Brain, Sparkles, Heart, Shield, Database, Leaf } from 'lucide-react';
 import { cn, truncateHash } from '@/lib/utils';
-import { type WorkReceipt } from '@workspace/api-client-react';
+import { type WorkReceipt } from '@genosync/api-client-react';
 
 type StepStatus = 'ok' | 'partial' | 'failed';
 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mic, MicOff, Volume2, VolumeX, Loader2, Camera, Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { auraChat, auraVision, type AuraChatRequest } from '@workspace/api-client-react';
+import { auraChat, auraVision, type AuraChatRequest } from '@genosync/api-client-react';
 import type { WellnessChallenge } from '@/hooks/use-wellness-coach';
 
 export interface AuraBioContext {

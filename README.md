@@ -1,349 +1,486 @@
-# GenoSync
+# Bioledger
 
-### Be Productive. Stay Healthy. Prove It.
+### Sovereign Bio-Data — KMS-encrypted, on-chain attested, passkey-secured
 
-> Your AI coach and shadow for sustainable work — monitoring, coaching, and rewarding you for working smarter and healthier. Every healthy action is verified by camera, signed on-chain, and stored on Filecoin.
+> Bioledger lets users own their health & bio data. Every payload is **envelope-encrypted with AWS KMS** before it ever touches storage, every wellness event is **attested on Base (Coinbase L2)**, and users sign in with a **Coinbase Smart Wallet** using FaceID/TouchID — no seed phrases, no extensions.
 
-You can be productive AND healthy — they fuel each other. GenoSync is the coach that proves it. It monitors your biometrics, typing patterns, and posture in real time, coaches you through healthy work habits, verifies your movements through AI-powered camera analysis, and generates cryptographically signed blockchain receipts proving you work sustainably.
-
-**The core belief:** Taking care of your body IS the most productive thing you can do. A hydrated, rested, stretched worker produces 10x better work than a burnt-out one grinding through pain.
+**Core principle.** The plaintext of a user's bio data should never exist outside an authenticated session. The blockchain is the audit trail; the KMS key is the gatekeeper; the passkey is the user's identity.
 
 ---
 
-## Bounty Architecture Matrix
+## What's new in this release
 
-| Bounty / Track | Integration | Key File |
+| Pillar | Change | Where |
 |---|---|---|
-| **ERC-8004: Agents with Receipts** | AURA agent signs ERC-8004 receipts (HMAC-SHA256 + agent_signature), manifest at /api/aura/manifest, execution logs at /api/aura/logs | companion-agent.ts |
-| **ERC-8004: Let the Agent Cook** | Autonomous wellness coaching with Gemini 2.5 Flash, vision-verified movement challenges, 3 personality modes, proactive RSI nudges | aura.ts |
-| **AI & Robotics Track** | Real-time MediaPipe Face + Pose Landmarker (on-device), Gemini chat + vision, RSIGuard risk engine, 10 wellness challenge types | use-camera.ts |
-| **Infrastructure & Digital Rights** | World ID ZK proofs (anti-sybil), Privy embedded wallet (Flow EVM), data sovereignty, nullifier-based identity | LockScreen.tsx |
-| **Neurotech Track** | RSIGuard neuromuscular strain prevention, keystroke/mouse/posture monitoring, repetitive strain injury detection, forced wellness breaks | use-rsi-risk.ts |
-| **Filecoin: Autonomous Agent Infra** | Storacha SDK uploads signed receipts to Filecoin warm storage, real CIDs, IPFS gateway URLs | filecoin.ts |
-| **Storacha: Decentralized Storage** | @storacha/client SDK integration, receipt JSON permanently stored | filecoin.ts |
-
----
-
-## How It Works
-
-### 3-Step Secure Login
-
-```
-Step 1: WORLD ID          Step 2: PRIVY WALLET        Step 3: WEARABLE
-ZK proof of humanity  -->  Embedded wallet on     -->  Fitbit or WHOOP
-No PII shared              Flow EVM Testnet            health data sync
-Nullifier hash bound       Chain 545                   OAuth 2.0 login
-```
-
-### Dashboard: Real-Time Monitoring
-
-Once logged in, the Sovereign Vault dashboard runs continuously:
-
-- **Sovereign Lens** -- MediaPipe Face Landmarker + Pose Landmarker detect blink rate, head stability, posture, wrist position, and certified human presence. Zero frames leave your device.
-- **Biometrics** -- HRV (heart rate variability) and Strain tracking from connected wearable (or simulated data in demo mode).
-- **RSIGuard** -- Real-time Repetitive Strain Injury prevention engine tracking keystrokes, mouse clicks, mouse distance (in meters), time since break, compliance rate, and break streak. Risk score 0-100 with color-coded levels (low/moderate/high/critical).
-- **APM Tracking** -- Actions per minute from keyboard and mouse activity, rolling 60-second window.
-- **Focus Timer** -- 25-minute Pomodoro sessions with 60-second demo mode for quick demonstrations.
-
-### AI Health Coaching (AURA)
-
-AURA is a certified health & productivity coach powered by Gemini 2.5 Flash with three dynamic personality modes:
-
-| Mode | Triggers When | Style |
-|---|---|---|
-| **Strict Coach** | HRV <50, Strain >16, late-night + high strain | Direct, urgent, imperative |
-| **Data Nerd** | Moderate metrics (HRV 50-70, Strain 8-15) | Numbers, trends, comparisons |
-| **Warm Friend** | Good metrics (HRV >70, low strain) | Encouraging, celebratory |
-
-AURA responds to what you actually say. Tell it "I have been working all night and drank some coke" and it will tell you to hydrate with water, not recite your HRV number.
-
-### Movement Challenges (Camera-Verified)
-
-When RSIGuard detects elevated risk, a movement challenge popup appears with an **animated SVG exercise diagram**:
-
-| Movement | Animation | XP | Camera Verification |
-|---|---|---|---|
-| Thumbs Up | Bouncing thumb | 30 | Gemini Vision detects gesture |
-| Wave Hello | Rotating hand | 30 | Gemini Vision detects wave |
-| Stretch Arms Up | Stick figure arms rising | 40 | Gemini Vision detects raised arms |
-| Shoulder Roll | Rotation arrows on shoulders | 40 | Gemini Vision detects posture |
-| Stand Up & Stretch | Figure rising from chair | 50 | Gemini Vision detects standing |
-
-Flow: RSIGuard triggers popup --> user does movement --> clicks "Verify" --> camera captures frame --> Gemini Vision analyzes --> XP awarded --> signed wellness receipt stored on Filecoin.
-
-### 10 Wellness Challenge Types
-
-| Challenge | Trigger | XP | Verification |
-|---|---|---|---|
-| Hydration | 30 min session (45s demo) | 30 | Vision: show water bottle |
-| Posture Reset | 3 min bad posture (15s demo) | 30 | Behavioral: sit up straight |
-| Eye Break (20-20-20) | 40 min session (90s demo) | 35 | Behavioral: look away 20s |
-| Typing Break | 60 min high APM (30s demo) | 25 | Behavioral: APM drops |
-| Mindful Breathing | HRV drops 10% (5% demo) | 40 | Manual confirmation |
-| Movement Break | 90 min session (120s demo) | 50 | Behavioral: stand up |
-| Wrist Stretch | 15 min typing (45s demo) | 40 | Vision: show stretch |
-| Neck Roll | 20 min no break (60s demo) | 35 | Vision: show neck movement |
-| Eye Relief | 25 min screen time (90s demo) | 30 | Vision: look away |
-| Standing Break | RSI risk >60 (2 min demo) | 50 | Behavioral: stand up |
-
-### Triple-Signed ERC-8004 Receipts
-
-Every completed session, exercise, or wellness challenge produces a receipt with 3 layers of verifiability:
-
-```
-Layer 1: WORLD ID NULLIFIER    -- Proves a unique human completed this
-Layer 2: HMAC-SHA256 SIGNATURE  -- AURA agent attests biometric integrity
-Layer 3: FLOW EVM WALLET        -- Cryptographic on-chain signature (Privy)
-```
-
-Receipt payload (ERC-8004 compliant):
-```json
-{
-  "agent_id": "AURA-AGENT-V1",
-  "duration": 1500,
-  "hrv_avg": 72,
-  "strain_delta": 2.1,
-  "apm_score": 65,
-  "certified_human_presence": true,
-  "focus_fidelity_score": 84,
-  "avg_blink_rate": 17.2,
-  "head_stability": 91,
-  "agent_signature": "a3f2c1..."
-}
-```
-
-Receipts are permanently stored on Filecoin via Storacha SDK with IPFS gateway URLs.
-
----
-
-## Tech Stack
-
-| Layer | Technology | Purpose |
-|---|---|---|
-| **Frontend** | React 19, Vite 7, TypeScript 5.9, Tailwind CSS 4 | PWA with aurora-themed UI |
-| **Backend** | Express 5, Drizzle ORM, Pino logging | API server with in-memory DB fallback |
-| **AI Chat** | Google Gemini 2.5 Flash | Health coaching with 3 personality modes |
-| **AI Vision** | Google Gemini 2.5 Flash (multimodal) | Camera-based exercise verification |
-| **Face Detection** | MediaPipe Face Landmarker | Blink rate, head stability, presence |
-| **Pose Detection** | MediaPipe Pose Landmarker | Wrist/shoulder tracking, stretch detection |
-| **Identity** | World ID (IDKit v4) | ZK proof of humanity, anti-sybil |
-| **Wallet** | Privy (@privy-io/react-auth) | Embedded wallet on Flow EVM Testnet (chain 545) |
-| **Storage** | Storacha / web3.storage | Filecoin warm storage for signed receipts |
-| **Receipts** | ERC-8004 draft | HMAC-SHA256 signed agentic work receipts |
-| **PWA** | vite-plugin-pwa | Installable, offline-capable |
-| **Animation** | Framer Motion | Smooth UI transitions and exercise diagrams |
-| **Charts** | Recharts | Biometric data visualization |
+| **AWS deployment** | Full stack on AWS — no Vercel, no Heroku | [`infra/aws/`](infra/aws/) |
+| **AWS KMS encryption** | Envelope encryption (AES-256-GCM) for every off-chain bio payload | [`artifacts/api/src/lib/kms.ts`](artifacts/api/src/lib/kms.ts) |
+| **Base L2 contracts** | `AuraToken` ERC-20 deploys to Base / Base Sepolia (Coinbase L2) | [`artifacts/contracts/`](artifacts/contracts/) |
+| **Coinbase Smart Wallet** | Passkey login (FaceID / TouchID) via `@coinbase/wallet-sdk` | [`artifacts/web/src/lib/coinbase-smart-wallet.ts`](artifacts/web/src/lib/coinbase-smart-wallet.ts) |
+| **Multi-chain switch** | `VITE_BIOLEDGER_CHAIN` selects Base / Base Sepolia / Flow at build time | [`artifacts/web/src/lib/chains.ts`](artifacts/web/src/lib/chains.ts) |
+| **Encrypted bio API** | `POST /api/bio/encrypt`, `POST /api/bio/:id/decrypt`, `GET /api/bio/by-wallet/:address` | [`artifacts/api/src/routes/bio.ts`](artifacts/api/src/routes/bio.ts) |
 
 ---
 
 ## Architecture
 
+### High-level
+
 ```
-                    +------------------+
-                    |    World ID      |
-                    |  ZK Proof Gate   |
-                    +--------+---------+
-                             |
-                    +--------v---------+
-                    |   Privy Wallet   |
-                    | Flow EVM Testnet |
-                    +--------+---------+
-                             |
-              +--------------v--------------+
-              |     Wearable Login          |
-              |  Fitbit (OAuth) | WHOOP     |
-              +--------------+--------------+
-                             |
-        +--------------------v--------------------+
-        |           SOVEREIGN VAULT               |
-        |                                         |
-        |  +------------+  +------------------+   |
-        |  | MediaPipe   |  | RSIGuard Engine  |   |
-        |  | Face + Pose |  | Keys/Mouse/Risk  |   |
-        |  +------+------+  +--------+---------+   |
-        |         |                  |              |
-        |  +------v------------------v---------+   |
-        |  |        AURA AI Companion          |   |
-        |  |  Gemini 2.5 Flash (Chat+Vision)   |   |
-        |  |  3 Personality Modes              |   |
-        |  |  10 Wellness Challenges           |   |
-        |  |  5 Movement Challenges (Camera)   |   |
-        |  +------+---------------------------+   |
-        |         |                               |
-        |  +------v---------+                     |
-        |  | ERC-8004 Receipt|                    |
-        |  | HMAC + Wallet   |                    |
-        |  | + Nullifier     |                    |
-        |  +------+----------+                    |
-        |         |                               |
-        +---------v-------------------------------+
-                  |
-         +--------v---------+
-         |    Filecoin       |
-         |  Storacha SDK     |
-         |  IPFS Gateway     |
-         +-------------------+
+                          ┌─────────────────────────────────────────────────┐
+                          │              Browser — Bioledger PWA            │
+                          │                                                 │
+                          │   Coinbase Smart Wallet (Passkey · FaceID)      │
+                          │   ────────────────────────────────────────      │
+                          │   World ID  ·  Wearable OAuth  ·  Vite SPA      │
+                          └────────────────────────┬────────────────────────┘
+                                                   │  HTTPS
+                          ┌────────────────────────▼────────────────────────┐
+                          │  CloudFront (TLS / edge cache / SPA routing)    │
+                          │   origin ─▶ S3 bucket  (Vite build output)      │
+                          └────────────────────────┬────────────────────────┘
+                                                   │ /api/*
+                          ┌────────────────────────▼────────────────────────┐
+                          │  Application Load Balancer                      │
+                          │   ─▶ ECS Fargate · bioledger-api task           │
+                          │       (Docker image from ECR)                   │
+                          └─────┬───────────────────────┬───────────────────┘
+                                │                       │
+              ┌─────────────────▼──────────┐   ┌────────▼───────────────────┐
+              │  AWS KMS                   │   │  Base (Coinbase L2)        │
+              │  alias/bioledger-userdata  │   │  AuraToken ERC-20          │
+              │                            │   │   ─ mint(to, amount)        │
+              │  GenerateDataKey / Decrypt │   │   ─ mintWithReceipt(        │
+              │  EncryptionContext binds   │   │       to, amount, rcpt)     │
+              │   { wallet, app }          │   │                            │
+              └────────────────────────────┘   └────────────────────────────┘
+```
+
+### Encryption envelope (per payload)
+
+```
+                       ┌──────────────────────────────────────────────────┐
+                       │              CLIENT (browser)                    │
+                       │  Wellness event JSON ──── HTTPS ─────▶  /encrypt │
+                       └──────────────────────────────────────────────────┘
+                                                          │
+                                                          ▼
+        ┌─────────────────────────────────────────────────────────────────┐
+        │                    BIOLEDGER API (ECS Fargate)                  │
+        │                                                                 │
+        │   1.  KMS.GenerateDataKey(KeySpec=AES_256,                      │
+        │                          EncryptionContext={wallet,app})        │
+        │             │                                                   │
+        │             ├─▶ Plaintext DEK (256-bit, in-memory only)         │
+        │             └─▶ Ciphertext blob (the wrapped DEK — persisted)   │
+        │                                                                 │
+        │   2.  AES-256-GCM(plaintext_payload, DEK, random_iv)            │
+        │             │                                                   │
+        │             ├─▶ ciphertext  (base64)                            │
+        │             ├─▶ iv          (12 bytes)                          │
+        │             └─▶ authTag     (16 bytes)                          │
+        │                                                                 │
+        │   3.  Buffer.fill(0)  on the plaintext DEK   (memory wipe)      │
+        │                                                                 │
+        │   4.  Persist envelope: { ciphertext, iv, authTag,              │
+        │                           encryptedDataKey, kmsKeyId,           │
+        │                           algorithm, encryptedAt }              │
+        └─────────────────────────────────────────────────────────────────┘
+
+  Decryption reverses the flow:
+     KMS.Decrypt(encryptedDataKey, EncryptionContext={wallet, app})
+        ──▶ AES-256-GCM-Decrypt(ciphertext, DEK, iv, authTag)
+        ──▶ DEK wiped, plaintext returned to caller, never persisted.
+```
+
+**Why envelope encryption.** The KMS key never leaves AWS HSMs. A leaked database is just ciphertext + a wrapped DEK; an attacker still needs `kms:Decrypt` permission on the key, and **every Decrypt call is logged to CloudTrail**. The `EncryptionContext` `{wallet, app}` is authenticated additional data — substituting one user's envelope for another's fails the AEAD check.
+
+### Wallet & on-chain flow
+
+```
+       LockScreen Step 2: Wallet Connect
+       ────────────────────────────────────────────────────────────
+       ┌─────────────────────────────┐    ┌────────────────────────┐
+       │  Coinbase Smart Wallet      │    │  Privy Embedded Wallet │
+       │  (RECOMMENDED)              │    │  (fallback / email)    │
+       │                             │    │                        │
+       │  Passkey · FaceID / TouchID │    │  Email magic-link      │
+       │  Smart-contract wallet on   │    │  EOA on Base           │
+       │  Base — gas-free UX via     │    │                        │
+       │  paymaster                  │    │                        │
+       └──────────────┬──────────────┘    └─────────────┬──────────┘
+                      │                                 │
+                      └──────────────┬──────────────────┘
+                                     ▼
+                       Bioledger session: walletAddress
+                                     │
+                       Wellness event completes (XP earned)
+                                     │
+              ┌──────────────────────┼──────────────────────────────┐
+              ▼                                                     ▼
+   POST /api/bio/encrypt                                 AuraToken.mint(to, amount)
+   (envelope-encrypted via KMS)                          on Base / Base Sepolia
+              │                                                     │
+              ▼                                                     ▼
+   Off-chain encrypted bio record                        On-chain ERC-20 receipt
+```
+
+### Repo layout
+
+```
+GenoSync-main/
+├── artifacts/
+│   ├── api/                           Express 5 API (ECS Fargate target)
+│   │   ├── src/
+│   │   │   ├── lib/kms.ts             KMS envelope encrypt / decrypt
+│   │   │   └── routes/bio.ts          /api/bio/* — encrypted bio store
+│   │   ├── Dockerfile                 multi-stage Node 20 alpine image
+│   │   └── .dockerignore
+│   ├── web/                           React 19 / Vite 7 PWA (S3 + CloudFront)
+│   │   └── src/
+│   │       ├── lib/
+│   │       │   ├── chains.ts          Base / Base Sepolia / Flow EVM defs
+│   │       │   ├── coinbase-smart-wallet.ts   passkey-only SDK adapter
+│   │       │   └── aura-token.ts      mint / balance against activeChain
+│   │       ├── hooks/
+│   │       │   └── use-coinbase-smart-wallet.ts   React state for the SDK
+│   │       └── pages/LockScreen.tsx   passkey-first wallet step
+│   └── contracts/                     Hardhat — AuraToken on Base
+│       ├── contracts/AuraToken.sol    OpenZeppelin v5, mintWithReceipt
+│       ├── scripts/deploy.ts          deploy + auto-verify on BaseScan
+│       └── hardhat.config.ts          base + baseSepolia networks
+└── infra/
+    └── aws/
+        ├── cloudformation-bioledger.yml   one-shot stack provisioning
+        ├── deploy-frontend.sh             S3 sync + CloudFront invalidation
+        ├── deploy-api.sh                  ECR push + ECS force-redeploy
+        ├── ecs-task-definition.json       Fargate task w/ KMS-scoped role
+        └── README.md                      ops runbook
 ```
 
 ---
 
-## Run Locally
+## Tech stack
+
+| Layer | Tech | Hosted on |
+|---|---|---|
+| **Frontend** | React 19, Vite 7, TypeScript 5.9, Tailwind CSS 4, vite-plugin-pwa | **AWS S3 + CloudFront** |
+| **Backend** | Express 5, pino, Drizzle ORM, PostgreSQL | **AWS ECS Fargate** (image in ECR) |
+| **Encryption** | AWS KMS (envelope), AES-256-GCM, `@aws-sdk/client-kms` v3 | **AWS KMS** (HSM-backed key) |
+| **Wallets** | `@coinbase/wallet-sdk` 4.x (`smartWalletOnly`), `@privy-io/react-auth` (fallback) | client-side / passkeys via WebAuthn |
+| **Blockchain** | Solidity 0.8.24, OpenZeppelin v5, Hardhat, viem 2.x | **Base** (chain 8453) / **Base Sepolia** (84532) |
+| **Identity** | World ID (`@worldcoin/idkit`) | client + server verification |
+| **Storage** | Filecoin / IPFS via `@storacha/client` | off-chain receipts |
+
+---
+
+## Local development
+
+The repo is a pnpm workspace. Vite proxies `/api` to the API on port 3000.
 
 ```bash
-# Clone and install
-git clone <repo-url>
-cd GenoSync
+# 1. install (workspace root)
 pnpm install
 
-# Configure environment (artifacts/api/.env)
+# 2. configure local env (KMS mock mode — no AWS creds needed)
+cat > artifacts/api/.env <<EOF
 PORT=3000
-WORLD_ID_APP_ID=app_xxxx              # from developer.worldcoin.org
-WORLD_ID_ACTION=genosync-verify
-WORLD_ID_SIGNING_KEY=0x...            # generated during World ID setup
-GEMINI_API_KEY=AIza...                # from ai.google.dev
-SYNAPSE_API_KEY=did:key:z4MX...       # from storacha.network
+NODE_ENV=development
+BIOLEDGER_KMS_MOCK=1
+AWS_REGION=us-east-1
+BIOLEDGER_KMS_KEY_ID=alias/bioledger-userdata-local
+EOF
 
-# Configure frontend (artifacts/web/.env)
-VITE_PRIVY_APP_ID=cm...               # from privy.io
+cat > artifacts/web/.env <<EOF
+PORT=5173
+API_PORT=3000
+VITE_API_BASE_URL=
+VITE_BIOLEDGER_CHAIN=base-sepolia
+VITE_AURA_TOKEN_ADDRESS=
+EOF
 
-# Start backend
-cd artifacts/api && pnpm run dev
+# 3. start the API (port 3000)
+pnpm --filter @genosync/api run build
+pnpm --filter @genosync/api run start &
 
-# Start frontend (new terminal)
-cd artifacts/web && pnpm run dev
+# 4. start the web (port 5173, proxies /api → :3000)
+pnpm --filter @genosync/web run dev
 ```
 
-Open http://localhost:5173 in a browser with camera access.
+Open **http://localhost:5173**.
 
-### Demo Flow (for video recording)
+### Verify the local stack
 
-1. **Login** (30s): World ID verification --> Privy wallet creation --> Fitbit sign-in
-2. **Dashboard** (10s): Camera activates, biometrics stream, RSIGuard starts tracking
-3. **Start Demo Session** (60s timer): Click demo mode, watch RSIGuard climb
-4. **Movement Challenge** (~8s in): Popup appears with animated exercise diagram --> do the movement --> click Verify --> camera captures --> AI verifies --> +XP
-5. **Chat with AURA**: "I have been working all night and drank some coke" --> health coaching response
-6. **Session Complete**: Receipt signed (HMAC + wallet), stored on Filecoin, chain card appears in ledger
-7. **Sovereign Export**: Download agent.json, agent_log.json, receipts.json
+```bash
+# API health
+curl http://localhost:5173/api/healthz
+# {"status":"ok"}
+
+# KMS-encrypt a bio payload (mock-mode, but envelope-shape-identical to real KMS)
+curl -X POST http://localhost:5173/api/bio/encrypt \
+  -H "Content-Type: application/json" \
+  -d '{
+        "walletAddress": "0xAbC1234567890000000000000000000000000001",
+        "payload": { "hrv": 62, "strain": 14.2 }
+      }'
+# {"id":"bio_...","kmsKeyId":"MOCK_LOCAL_KEY","algorithm":"AES-256-GCM",...}
+
+# Round-trip decrypt
+curl -X POST http://localhost:5173/api/bio/<id>/decrypt \
+  -H "Content-Type: application/json" \
+  -d '{"walletAddress": "0xAbC1234567890000000000000000000000000001"}'
+# {"payload":{"hrv":62,"strain":14.2},...}
+```
+
+`BIOLEDGER_KMS_MOCK=1` produces an envelope with `kmsKeyId: "MOCK_LOCAL_KEY"` so production code can refuse mock envelopes — drop the flag in any environment that has real AWS credentials.
 
 ---
 
-## API Endpoints
+## Deploy to AWS
 
-| Method | Path | Description |
+### One-time: provision the stack
+
+```bash
+aws cloudformation deploy \
+  --template-file infra/aws/cloudformation-bioledger.yml \
+  --stack-name bioledger \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+```
+
+The template provisions:
+
+| Resource | Purpose |
+|---|---|
+| `AWS::KMS::Key` (`alias/bioledger-userdata`) | Customer-managed key, rotation enabled, scoped policy |
+| `AWS::S3::Bucket` (private, OAC) | Vite build artifact storage |
+| `AWS::CloudFront::Distribution` | TLS, edge cache, SPA fallback (`/index.html` for 403/404) |
+| `AWS::ECR::Repository` | API image registry, `ScanOnPush: true` |
+| `AWS::ECS::Cluster` | Fargate cluster |
+| `AWS::IAM::Role` (`bioledger-ecs-task`) | Allowed `kms:GenerateDataKey` / `Decrypt` on the bioledger key only |
+| `AWS::IAM::Role` (`bioledger-ecs-execution`) | Standard ECR pull + CloudWatch logs |
+| `AWS::Logs::LogGroup` (`/ecs/bioledger-api`) | 14-day retention |
+
+Capture the outputs:
+
+```bash
+aws cloudformation describe-stacks --stack-name bioledger \
+  --query "Stacks[0].Outputs" --region us-east-1
+```
+
+Set as env:
+
+```bash
+export AWS_REGION=us-east-1
+export AWS_ACCOUNT_ID=<account-id>
+export BIOLEDGER_S3_BUCKET=<WebBucketName output>
+export BIOLEDGER_CF_DIST_ID=<CloudFrontDistribution output>
+export BIOLEDGER_ECR_REPO=bioledger-api
+export BIOLEDGER_ECS_CLUSTER=bioledger
+export BIOLEDGER_ECS_SERVICE=bioledger-api
+```
+
+### Deploy the frontend
+
+```bash
+export VITE_API_BASE_URL=https://api.bioledger.app
+export VITE_BIOLEDGER_CHAIN=base-sepolia        # or "base" for mainnet
+export VITE_AURA_TOKEN_ADDRESS=0x...            # from contracts deploy
+
+bash infra/aws/deploy-frontend.sh
+```
+
+The script:
+1. `pnpm --filter @genosync/web run build`
+2. `aws s3 sync` hashed assets with `Cache-Control: public,max-age=31536000,immutable`
+3. Uploads `index.html` separately with `no-cache,no-store,must-revalidate`
+4. Issues a CloudFront `/*` invalidation
+
+### Deploy the API
+
+```bash
+bash infra/aws/deploy-api.sh
+```
+
+The script:
+1. `aws ecr get-login-password | docker login`
+2. `docker build -f artifacts/api/Dockerfile -t <repo>:<git-sha> -t <repo>:latest .`
+3. `docker push` both tags
+4. `aws ecs update-service --force-new-deployment`
+5. `aws ecs wait services-stable`
+
+First-time deploys also need a service registered against the task definition in [`infra/aws/ecs-task-definition.json`](infra/aws/ecs-task-definition.json) — replace `ACCOUNT_ID` / `REGION` placeholders, then `aws ecs register-task-definition --cli-input-json file://...` and `aws ecs create-service`.
+
+### Deploy the smart contract
+
+```bash
+cd artifacts/contracts
+cp .env.example .env
+# fill in DEPLOYER_PRIVATE_KEY (fund with Base Sepolia faucet ETH)
+# optional: BASESCAN_API_KEY for auto-verification
+
+pnpm install
+pnpm run deploy:base-sepolia    # or deploy:base for mainnet
+```
+
+Output:
+```
+Deploying AuraToken to baseSepolia (chainId 84532)
+Deployer: 0x...
+Balance:  0.05 ETH
+
+AuraToken deployed: 0xABC...
+BaseScan Sepolia: https://sepolia.basescan.org/address/0xABC...
+```
+
+Copy the address into `artifacts/web/.env` as `VITE_AURA_TOKEN_ADDRESS=0xABC...` and redeploy the frontend.
+
+---
+
+## Coinbase Smart Wallet (passkey login)
+
+The LockScreen step 2 surfaces "Sign in with Passkey" as the recommended option:
+
+```ts
+// artifacts/web/src/lib/coinbase-smart-wallet.ts
+const sdk = createCoinbaseWalletSDK({
+  appName: 'Bioledger',
+  appChainIds: [base.id, baseSepolia.id],
+  preference: { options: 'smartWalletOnly' },   // forces smart-wallet creation,
+                                                // not legacy EOA browser extension
+});
+```
+
+User journey:
+
+1. User taps **Sign in with Passkey**.
+2. Coinbase Smart Wallet popup opens, prompts FaceID / TouchID via WebAuthn.
+3. Smart-contract wallet is created (or restored) on **Base**, controlled by the device passkey — not a seed phrase.
+4. Wallet address comes back via `eth_requestAccounts`; Bioledger advances to step 3 (wearable connect).
+5. Future on-chain calls (`AuraToken.mint`) go through the same provider — gas-free if a paymaster is configured.
+
+Why this matters for a health app: regular users churn at "write down these 12 words." A passkey is biometric and stays inside the device's secure enclave — non-exportable, phishing-resistant, recoverable per Apple/Google account.
+
+---
+
+## AWS KMS encryption — exact flow
+
+```
+artifacts/api/src/lib/kms.ts
+─────────────────────────────────────────────────────────────────────────
+
+  encryptBioPayloadSafe(plaintext, context)            decryptBioPayloadSafe(envelope, context)
+    │                                                    │
+    ├─ if BIOLEDGER_KMS_MOCK=1:                          ├─ if envelope.kmsKeyId === "MOCK_LOCAL_KEY":
+    │     local AES key (DEV ONLY)                       │     local AES decrypt (DEV ONLY)
+    │                                                    │
+    └─ else: encryptBioPayload                           └─ else: decryptBioPayload
+         │                                                    │
+         │  KMS.GenerateDataKey({                              │  KMS.Decrypt({
+         │    KeyId: alias/bioledger-userdata,                 │    CiphertextBlob: envelope.encryptedDataKey,
+         │    KeySpec: "AES_256",                              │    EncryptionContext: { wallet, app }
+         │    EncryptionContext: { wallet, app }               │  })
+         │  })                                                 │
+         │   ↓ Plaintext DEK + CiphertextBlob                  │   ↓ Plaintext DEK
+         │                                                     │
+         │  AES-256-GCM.encrypt(plaintext, DEK, iv=randomBytes(12))
+         │   ↓ ciphertext, authTag                              AES-256-GCM.decrypt(...)
+         │                                                       ↓ plaintext
+         │  DEK.fill(0)        ← wipe from memory               │
+         │                                                       │  DEK.fill(0)
+         └─▶ envelope                                            └─▶ Buffer (caller decides what to do)
+```
+
+### Encrypted bio API
+
+| Verb | Path | Purpose |
 |---|---|---|
-| GET | /api/healthz | Server health check |
-| GET | /api/world-id/config | World ID configuration status |
-| GET | /api/world-id/rp-context | Signed RP context for IDKit widget |
-| POST | /api/verify-world-id | Verify ZK proof against Worldcoin API |
-| GET | /api/receipts?nullifier=... | List work receipts for user |
-| POST | /api/receipts | Store signed work receipt |
-| POST | /api/filecoin/upload | Upload receipt to Filecoin via Storacha |
-| POST | /api/aura/chat | Chat with AURA companion (Gemini 2.5 Flash) |
-| POST | /api/aura/vision | Vision challenge verification (Gemini multimodal) |
-| GET | /api/aura/manifest | ERC-8004 agent capability manifest |
-| GET | /api/aura/logs?nullifier=... | Agent execution logs |
-| GET | /api/auth/fitbit | Fitbit OAuth 2.0 connection |
-| GET | /api/auth/whoop | WHOOP API v2 connection |
+| `POST` | `/api/bio/encrypt` | KMS-encrypt a payload, return record id + envelope metadata |
+| `GET` | `/api/bio/:id` | Inspect envelope (ciphertext truncated — proof it's encrypted) |
+| `POST` | `/api/bio/:id/decrypt` | Wallet-gated decrypt; returns plaintext payload |
+| `GET` | `/api/bio/by-wallet/:address` | List envelope records owned by a wallet |
 
----
+**Sample request — encrypt:**
 
-## ERC-8004 Agent Manifest
+```http
+POST /api/bio/encrypt
+Content-Type: application/json
 
-Available at GET /api/aura/manifest:
-
-```json
 {
-  "agent_id": "AURA-AGENT-V1",
-  "spec_version": "erc-8004-draft",
-  "supported_tools": [
-    "filecoin-upload",
-    "world-id-verify",
-    "hmac-sign",
-    "gemini-chat",
-    "gemini-vision",
-    "mediapipe-vision"
-  ],
-  "task_categories": [
-    "biometric-analysis",
-    "work-receipt",
-    "health-coaching",
-    "sovereign-data"
-  ],
-  "capabilities": [
-    "zk-identity",
-    "biometric-sensing",
-    "erc8004-signing",
-    "filecoin-storage",
-    "proactive-nudging",
-    "ai-chat",
-    "ai-vision",
-    "wellness-challenges",
-    "posture-detection",
-    "hrv-monitoring",
-    "focus-tracking"
-  ]
+  "walletAddress": "0xAbC...",
+  "payload": {
+    "kind": "wellness-challenge",
+    "challengeType": "hydration",
+    "xpAwarded": 50,
+    "completedAt": "2026-05-07T15:48:46.022Z"
+  }
 }
 ```
 
----
+**Response:**
 
-## Privacy Model
-
-- **Zero-knowledge identity**: World ID nullifier hash -- no name, email, or photo stored
-- **On-device vision**: MediaPipe Face + Pose Landmarker run entirely in-browser. No video frames are sent to any server.
-- **Camera frames for challenges only**: When the user explicitly clicks "Verify Movement", a single JPEG frame is sent to Gemini Vision. This is opt-in per challenge.
-- **Nullifier-scoped data**: All receipts and chat logs are keyed to the World ID nullifier, not to any personal identifier.
-- **Session-based auth**: Closing the browser clears the session. Nullifier persists in localStorage for re-verification convenience only.
-
----
-
-## Project Structure
-
-```
-GenoSync/
-  artifacts/
-    api/                  Express 5 API
-      src/routes/
-        aura.ts           AURA AI chat + vision + manifest
-        auth.ts           Fitbit/WHOOP OAuth endpoints
-        filecoin.ts       Storacha/Filecoin upload
-        receipts.ts       ERC-8004 receipt CRUD
-        world-id.ts       World ID ZK verification
-    web/                  React PWA frontend
-      src/
-        pages/
-          LockScreen.tsx  3-step login (World ID + Privy + Wearable)
-          Dashboard.tsx   Sovereign Vault dashboard
-        components/
-          AuraChat.tsx    AI wellness companion chat
-          CameraLens.tsx  MediaPipe camera HUD
-          MovementChallenge.tsx  Camera-verified exercise popup
-          ReceiptChainCard.tsx   Receipt chain visualization
-          PixelUI.tsx     Design system components
-        hooks/
-          use-camera.ts   MediaPipe Face + Pose detection
-          use-rsi-risk.ts RSIGuard risk scoring engine
-          use-wellness-coach.ts  10 wellness challenge types
-          use-apm.ts      Actions per minute tracking
-          use-motion-lock.ts  Accelerometer interruption
-        lib/
-          companion-agent.ts  ERC-8004 receipt signing
-          chains.ts       Flow EVM Testnet chain definition
-        providers/
-          PrivyProviderWrapper.tsx  Privy wallet context
-  lib/
-    api-spec/             OpenAPI 3.1 specification
-    api-client-react/     Generated React Query hooks
-    api-zod/              Generated Zod validation schemas
-    db/                   Drizzle ORM schema + connection
+```json
+{
+  "id": "bio_movnv8ee_asqa85hj",
+  "walletAddress": "0xabc...",
+  "kmsKeyId": "alias/bioledger-userdata",
+  "algorithm": "AES-256-GCM",
+  "encryptedAt": "2026-05-07T15:48:46.022Z",
+  "ciphertextLength": 80
+}
 ```
 
+The Dashboard automatically posts to this endpoint after every wellness challenge — so every XP-earning event leaves both an on-chain mint **and** a KMS-encrypted off-chain record, correlated by the `mintWithReceipt(receiptId)` event.
+
 ---
 
-## Hackathon
+## Multi-chain switch
 
-**PL Genesis: Frontiers of Collaboration** -- March 2026
+`artifacts/web/src/lib/chains.ts` exports an `activeChain` derived from `VITE_BIOLEDGER_CHAIN`:
 
-- **Track**: Fresh Code
-- **Frontiers**: Web3 & Digital Human Rights, AI/AGI, Neurotech
-- **Team**: Hackers
+| `VITE_BIOLEDGER_CHAIN` | activeChain | Chain ID | Use |
+|---|---|---|---|
+| `base` | Base mainnet | 8453 | Production |
+| `base-sepolia` *(default)* | Base Sepolia | 84532 | Demo / testnet |
+| `flow` | Flow EVM Testnet | 545 | Legacy compatibility |
+
+Every part of the stack reads `activeChain`:
+- `aura-token.ts` builds the public + wallet client against it
+- `coinbase-smart-wallet.ts` requests `wallet_switchEthereumChain` to it
+- `PrivyProviderWrapper.tsx` sets `defaultChain` and `supportedChains`
+- LockScreen + Dashboard chain badges render its `name`
+
+---
+
+## Smart contracts
+
+`artifacts/contracts/contracts/AuraToken.sol` — ERC-20 minted on wellness completion. OpenZeppelin v5 `Ownable` + minter map.
+
+```solidity
+function mint(address to, uint256 amount) external onlyMinter {
+    _mint(to, amount);
+}
+
+function mintWithReceipt(address to, uint256 amount, bytes32 receiptId) external onlyMinter {
+    _mint(to, amount);
+    emit BioReceiptMinted(to, amount, receiptId);   // pairs on-chain mint
+                                                     // with KMS-encrypted off-chain record id
+}
+```
+
+Hardhat config supports both `base` (8453) and `baseSepolia` (84532), with auto-verification on BaseScan when `BASESCAN_API_KEY` is set.
+
+---
+
+## Pitch lines
+
+> **Security.** *Bioledger handles HIPAA-class data. Every off-chain payload is envelope-encrypted with AWS KMS before it ever touches a database. Even with full DB access, an attacker sees only ciphertext — they'd need to invoke our KMS key, and CloudTrail logs every call.*
+
+> **Adoption.** *Healthcare apps fail at "write down these 12 words." Bioledger replaces that with a Coinbase Smart Wallet — FaceID or TouchID, no seed phrase, no extension. The wallet lives on Base, so transactions are sub-cent and gas-free with a paymaster.*
+
+> **Trust.** *Every wellness event ends with two artifacts: an on-chain `mintWithReceipt` event on Base, and a KMS-encrypted bio record off-chain. The receipt id pairs them. You can prove an event happened without ever exposing what the event contained.*
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.

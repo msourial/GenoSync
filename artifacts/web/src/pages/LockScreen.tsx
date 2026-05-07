@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { IDKitRequestWidget, deviceLegacy } from '@worldcoin/idkit';
 import type { IDKitResult } from '@worldcoin/idkit';
 import { PixelButton, NeonText, PixelPanel } from '@/components/PixelUI';
-import { Lock, ShieldCheck, Cpu, Activity, WifiOff, AlertTriangle, Heart, Dumbbell, Wallet, CheckCircle2, Eye, EyeOff, ArrowLeft, Mail } from 'lucide-react';
+import { Lock, ShieldCheck, Cpu, Activity, WifiOff, AlertTriangle, Heart, Dumbbell, Wallet, CheckCircle2, Eye, EyeOff, ArrowLeft, Mail, Fingerprint, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
+import { useCoinbaseSmartWallet } from '@/hooks/use-coinbase-smart-wallet';
+import { activeChain } from '@/lib/chains';
 
 export type WearableSource = 'fitbit' | 'whoop' | 'demo';
 
@@ -98,13 +100,16 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
   const privy = usePrivySafe();
   const privyAvailable = privy.privyAvailable;
 
+  // Coinbase Smart Wallet (passkey-based — no seed phrase)
+  const cbw = useCoinbaseSmartWallet();
+
   // Load World ID config
   useEffect(() => {
     fetch(`${API}/api/world-id/config`)
       .then((r) => r.json())
       .then((cfg: WorldIdConfig) => setWorldIdConfig(cfg))
       .catch(() =>
-        setWorldIdConfig({ configured: false, app_id: null, action: 'genosync-verify', rp_id: null })
+        setWorldIdConfig({ configured: false, app_id: null, action: 'bio-ledger-verify', rp_id: null })
       );
   }, []);
 
@@ -224,6 +229,26 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     localStorage.setItem('bio_ledger_wallet_address', addr);
     setPhase('wallet-done');
   }, [phase, privy.authenticated, privy.user?.wallet?.address]);
+
+  // When Coinbase Smart Wallet connects (passkey/FaceID), advance to wallet-done
+  useEffect(() => {
+    if (phase !== 'wallet-connect') return;
+    if (!cbw.address) return;
+    setWalletAddress(cbw.address);
+    localStorage.setItem('bio_ledger_wallet_address', cbw.address);
+    localStorage.setItem('bio_ledger_wallet_kind', 'coinbase-smart-wallet');
+    setPhase('wallet-done');
+  }, [phase, cbw.address]);
+
+  const handleCoinbaseSmartWallet = async () => {
+    const addr = await cbw.connect();
+    if (addr) {
+      setWalletAddress(addr);
+      localStorage.setItem('bio_ledger_wallet_address', addr);
+      localStorage.setItem('bio_ledger_wallet_kind', 'coinbase-smart-wallet');
+      setPhase('wallet-done');
+    }
+  };
 
   // wallet-done → user clicks to proceed to wearable
   const handleProceedToWearable = () => {
@@ -384,7 +409,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
           </motion.div>
 
           <h1 className="font-pixel text-xl sm:text-2xl mb-1 tracking-widest text-foreground">
-            GenoSync
+            Bio-Ledger
           </h1>
           <h2 className="font-terminal text-sm sm:text-base mb-1 font-semibold" style={{ color: '#a78bfa' }}>
             Be Productive. Stay Healthy.
@@ -414,9 +439,14 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               {worldIdConfig?.configured ? 'ZK PROOF' : 'ZK DEMO'}
             </div>
             <span className="text-muted-foreground/20">|</span>
-            <div className="flex items-center gap-1.5 text-violet-400/70">
-              <span className="w-1.5 h-1.5 rounded-full inline-block bg-violet-400" />
-              FLOW EVM
+            <div className="flex items-center gap-1.5 text-blue-400/80">
+              <span className="w-1.5 h-1.5 rounded-full inline-block bg-blue-400" />
+              {activeChain.name.toUpperCase()}
+            </div>
+            <span className="text-muted-foreground/20">|</span>
+            <div className="flex items-center gap-1.5 text-emerald-400/80">
+              <span className="w-1.5 h-1.5 rounded-full inline-block bg-emerald-400" />
+              AWS KMS
             </div>
           </div>
 
@@ -513,7 +543,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
-            {/* ── Step 2: Wallet Connection (real Privy) ── */}
+            {/* ── Step 2: Wallet Connection ── */}
             {phase === 'wallet-connect' && (
               <motion.div
                 key="wallet-connect"
@@ -523,39 +553,91 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 className="flex flex-col gap-4 w-full"
               >
                 <div className="flex flex-col items-center gap-4 w-full">
-                  <div className="w-full border-2 border-violet-500/30 rounded-xl bg-violet-500/5 p-5">
+                  {/* Coinbase Smart Wallet — passkey first, no seed phrases */}
+                  <div className="w-full border-2 border-blue-500/40 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/5 p-5 relative overflow-hidden">
+                    <div className="absolute top-2 right-3 px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/40 font-pixel text-[7px] tracking-wider text-blue-300">
+                      RECOMMENDED
+                    </div>
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
-                        <Wallet className="w-5 h-5 text-white" />
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <Fingerprint className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <p className="font-terminal text-sm font-semibold text-violet-200">Privy Embedded Wallet</p>
-                        <p className="font-terminal text-[11px] text-muted-foreground/60">Flow EVM Testnet (Chain 545)</p>
+                        <p className="font-terminal text-sm font-semibold text-blue-200">Coinbase Smart Wallet</p>
+                        <p className="font-terminal text-[11px] text-muted-foreground/60">
+                          Passkey login · {activeChain.name}
+                        </p>
                       </div>
                     </div>
 
                     <div className="space-y-2 mb-4">
-                      <p className="font-terminal text-[11px] text-muted-foreground/80 uppercase tracking-wider">GenoSync requests access to:</p>
-                      {[
-                        'Sign ERC-8004 wellness receipts',
-                        'Store receipt signatures on-chain',
-                        'Verify session authenticity',
-                      ].map((perm) => (
-                        <div key={perm} className="flex items-center gap-2">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                          <span className="font-terminal text-sm text-violet-300/80">{perm}</span>
-                        </div>
-                      ))}
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                        <span className="font-terminal text-sm text-blue-300/80">FaceID / TouchID — no seed phrase</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                        <span className="font-terminal text-sm text-blue-300/80">Smart contract wallet on Base</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                        <span className="font-terminal text-sm text-blue-300/80">Sign Bio-Ledger receipts gas-free</span>
+                      </div>
                     </div>
 
                     <PixelButton
-                      onClick={() => privy.login()}
-                      className="w-full flex items-center justify-center gap-3"
+                      onClick={handleCoinbaseSmartWallet}
+                      disabled={cbw.connecting}
+                      className="w-full flex items-center justify-center gap-3 disabled:opacity-60"
                     >
-                      <Wallet className="w-4 h-4" />
-                      Connect Wallet
+                      {cbw.connecting ? (
+                        <>
+                          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
+                            <Cpu className="w-4 h-4" />
+                          </motion.div>
+                          Authenticating with passkey...
+                        </>
+                      ) : (
+                        <>
+                          <Fingerprint className="w-4 h-4" />
+                          Sign in with Passkey
+                        </>
+                      )}
                     </PixelButton>
+                    {cbw.error && (
+                      <p className="font-terminal text-[11px] text-red-400 mt-2">{cbw.error}</p>
+                    )}
                   </div>
+
+                  {privyAvailable && (
+                    <>
+                      <div className="relative w-full">
+                        <div className="w-full h-px bg-secondary/30" />
+                        <span className="absolute inset-x-0 -top-2.5 flex justify-center">
+                          <span className="px-2 bg-card font-terminal text-xs text-muted-foreground/40">or</span>
+                        </span>
+                      </div>
+
+                      <div className="w-full border-2 border-violet-500/20 rounded-xl bg-violet-500/5 p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+                            <KeyRound className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-terminal text-sm font-semibold text-violet-200">Privy Embedded Wallet</p>
+                            <p className="font-terminal text-[10px] text-muted-foreground/60">Email · {activeChain.name}</p>
+                          </div>
+                        </div>
+                        <PixelButton
+                          onClick={() => privy.login()}
+                          className="w-full flex items-center justify-center gap-3"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Connect with Email
+                        </PixelButton>
+                      </div>
+                    </>
+                  )}
 
                   <button
                     onClick={handleSkipWallet}
@@ -587,7 +669,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                   </span>
                 </div>
                 <p className="font-terminal text-[11px] text-muted-foreground/40">
-                  Flow EVM Testnet · Chain 545 · Ready to sign receipts
+                  {activeChain.name} · Chain {activeChain.id} · Ready to sign receipts
                 </p>
                 <PixelButton
                   onClick={handleProceedToWearable}

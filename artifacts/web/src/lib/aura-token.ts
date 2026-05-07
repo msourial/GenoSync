@@ -1,5 +1,5 @@
 import { createPublicClient, createWalletClient, custom, http, parseEther, formatEther, type EIP1193Provider } from 'viem';
-import { flowEvmTestnet } from '@/lib/chains';
+import { activeChain } from '@/lib/chains';
 import { AURA_TOKEN_ABI } from '@/contracts/abi';
 
 // Contract address — set after deployment. For now use env var or fallback.
@@ -7,7 +7,7 @@ const AURA_TOKEN_ADDRESS = (import.meta.env.VITE_AURA_TOKEN_ADDRESS as `0x${stri
   ?? '0x0000000000000000000000000000000000000000';
 
 const publicClient = createPublicClient({
-  chain: flowEvmTestnet,
+  chain: activeChain,
   transport: http(),
 });
 
@@ -47,7 +47,7 @@ export async function mintAuraTokens(
 
   try {
     const client = createWalletClient({
-      chain: flowEvmTestnet,
+      chain: activeChain,
       transport: custom(walletProvider),
     });
 

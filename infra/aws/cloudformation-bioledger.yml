@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Bioledger — full AWS stack:
+   - KMS key for off-chain bio-data envelope encryption
+   - S3 bucket for the React/Vite frontend
+   - CloudFront distribution (HTTPS, SPA routing)
+   - ECR repo for the API image
+   - ECS Fargate cluster + task role allowed to call KMS
+
+Parameters:
+  AppName:
+    Type: String
+    Default: bioledger
+  Domain:
+    Type: String
+    Default: ""
+    Description: Optional custom domain (leave blank to use the CloudFront domain)
+
+Resources:
+  # ----- KMS: encrypts off-chain user health/bio data -----
+  BioledgerUserDataKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Bioledger off-chain user health/bio data envelope key
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableRoot
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root" }
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: AllowApiTaskRole
+            Effect: Allow
+            Principal: { AWS: !GetAtt EcsTaskRole.Arn }
+            Action:
+              - kms:GenerateDataKey
+              - kms:Decrypt
+              - kms:DescribeKey
+            Resource: "*"
+
+  BioledgerUserDataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${AppName}-userdata"
+      TargetKeyId: !Ref BioledgerUserDataKey
+
+  # ----- S3 frontend bucket -----
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AppName}-web-${AWS::AccountId}-${AWS::Region}"
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub "${WebBucket.Arn}/*"
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}"
+
+  WebOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${AppName}-web-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: s3-web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            S3OriginConfig: { OriginAccessIdentity: "" }
+            OriginAccessControlId: !GetAtt WebOAC.Id
+        DefaultCacheBehavior:
+          TargetOriginId: s3-web
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+  # ----- ECR for the API image -----
+  ApiRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${AppName}-api"
+      ImageScanningConfiguration: { ScanOnPush: true }
+
+  # ----- ECS cluster + roles -----
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${AppName}"
+
+  EcsExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-ecs-execution"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AppName}-ecs-task"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ecs-tasks.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: bioledger-kms-envelope
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:GenerateDataKey
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                Resource: !GetAtt BioledgerUserDataKey.Arn
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${AppName}-api"
+      RetentionInDays: 14
+
+Outputs:
+  WebBucketName:
+    Value: !Ref WebBucket
+    Description: Use as BIOLEDGER_S3_BUCKET in deploy-frontend.sh
+  CloudFrontDistribution:
+    Value: !Ref WebDistribution
+    Description: Use as BIOLEDGER_CF_DIST_ID in deploy-frontend.sh
+  CloudFrontDomain:
+    Value: !GetAtt WebDistribution.DomainName
+  EcrRepoUri:
+    Value: !GetAtt ApiRepo.RepositoryUri
+  KmsKeyArn:
+    Value: !GetAtt BioledgerUserDataKey.Arn
+  KmsAlias:
+    Value: !Ref BioledgerUserDataKeyAlias
+  EcsClusterName:
+    Value: !Ref EcsCluster

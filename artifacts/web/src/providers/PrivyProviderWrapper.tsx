@@ -1,7 +1,7 @@
 import { useCallback, type ReactNode } from 'react';
 import { PrivyProvider, usePrivy, useWallets } from '@privy-io/react-auth';
 import { PrivySafeContext, type PrivySafeState } from '@/hooks/use-privy-safe';
-import { flowEvmTestnet } from '@/lib/chains';
+import { activeChain, flowEvmTestnet, base, baseSepolia } from '@/lib/chains';
 import type { EIP1193Provider } from 'viem';
 
 const PRIVY_APP_ID = import.meta.env.VITE_PRIVY_APP_ID as string | undefined;
@@ -61,8 +61,8 @@ export default function PrivyProviderWrapper({ children }: { children: ReactNode
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        defaultChain: flowEvmTestnet,
-        supportedChains: [flowEvmTestnet],
+        defaultChain: activeChain,
+        supportedChains: [base, baseSepolia, flowEvmTestnet],
         appearance: {
           theme: 'dark',
           accentColor: '#8B5CF6',
@@ -80,4 +80,4 @@ export default function PrivyProviderWrapper({ children }: { children: ReactNode
   );
 }
 
-export { flowEvmTestnet } from '@/lib/chains';
+export { activeChain, base, baseSepolia, flowEvmTestnet } from '@/lib/chains';

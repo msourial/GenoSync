@@ -52,7 +52,7 @@ router.post("/filecoin/upload", async (req, res) => {
   if (!UPLOAD_TOKEN) {
     // Demo mode — generate a deterministic placeholder CID for judges
     const demoCid = "bafybeig" + Buffer.from(nullifierHash as string).toString("hex").slice(0, 48);
-    console.log("🔒 Committing GenoSync to Filecoin via Synapse: CID", demoCid);
+    console.log("🔒 Committing Bio-Ledger to Filecoin via Synapse: CID", demoCid);
     console.log("📦 Receipt permanently stored: https://w3s.link/ipfs/" + demoCid);
     console.log("⚠️  Demo mode — set SYNAPSE_API_KEY for live Filecoin uploads");
 
@@ -73,7 +73,7 @@ router.post("/filecoin/upload", async (req, res) => {
       headers: {
         Authorization: `Bearer ${UPLOAD_TOKEN}`,
         "Content-Type": "application/json",
-        "X-Name": "genosync-erc8004-receipt.json",
+        "X-Name": "bio-ledger-erc8004-receipt.json",
       },
       body: blob,
     });
@@ -96,7 +96,7 @@ router.post("/filecoin/upload", async (req, res) => {
     }
 
     // Judge-visible Filecoin commit logs
-    console.log("🔒 Committing GenoSync to Filecoin via Synapse: CID", cid);
+    console.log("🔒 Committing Bio-Ledger to Filecoin via Synapse: CID", cid);
     console.log("📦 Receipt permanently stored: https://w3s.link/ipfs/" + cid);
 
     res.json({

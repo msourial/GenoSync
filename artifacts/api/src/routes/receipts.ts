@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, hasDb, inMemory, workReceiptsTable } from "@workspace/db";
+import { db, hasDb, inMemory, workReceiptsTable } from "@genosync/db";
 import { eq } from "drizzle-orm";
-import { CreateReceiptBody, ListReceiptsQueryParams } from "@workspace/api-zod";
+import { CreateReceiptBody, ListReceiptsQueryParams } from "@genosync/api-zod";
 
 const router: IRouter = Router();
 

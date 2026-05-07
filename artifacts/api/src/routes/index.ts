@@ -5,6 +5,7 @@ import authRouter from "./auth";
 import worldIdRouter from "./world-id";
 import filecoinRouter from "./filecoin";
 import auraRouter from "./aura";
+import bioRouter from "./bio";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(authRouter);
 router.use(worldIdRouter);
 router.use(filecoinRouter);
 router.use(auraRouter);
+router.use(bioRouter);
 
 export default router;

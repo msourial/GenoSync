@@ -152,7 +152,7 @@ const AGENT_ID = 'AURA-AGENT-V1';
 const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function hmacSign(message: string): Promise<string> {
-  const keyMaterial = 'genosync-companion-v1-hackathon-key';
+  const keyMaterial = 'bio-ledger-companion-v1-hackathon-key';
   const encoder = new TextEncoder();
 
   const key = await crypto.subtle.importKey(
@@ -225,7 +225,7 @@ export async function signWorkReceipt(
         });
       }
     } catch (err) {
-      console.warn('[GenoSync] Wallet signing failed, falling back to HMAC only:', err);
+      console.warn('[Bio-Ledger] Wallet signing failed, falling back to HMAC only:', err);
     }
   }
 
@@ -316,7 +316,7 @@ export async function storeToFilecoin(receipt: WorkReceiptPayload): Promise<File
 
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({})) as { error?: string };
-      console.warn('[GenoSync] Filecoin upload HTTP error:', res.status, errBody);
+      console.warn('[Bio-Ledger] Filecoin upload HTTP error:', res.status, errBody);
       return { cid: null, gateway_url: null, status: 'failed', message: errBody.error ?? `HTTP ${res.status}` };
     }
 
@@ -325,7 +325,7 @@ export async function storeToFilecoin(receipt: WorkReceiptPayload): Promise<File
     if (data.cid) {
       receipt.pieceCid = data.cid;
       receipt.receiptCid = data.cid;
-      console.log(`🔒 Committing GenoSync to Filecoin via Synapse: CID ${data.cid}`);
+      console.log(`🔒 Committing Bio-Ledger to Filecoin via Synapse: CID ${data.cid}`);
       console.log(`📦 Receipt permanently stored: ${data.gateway_url}`);
     } else {
       console.log(`⏳ Filecoin upload pending — status: ${data.status}`);
@@ -334,7 +334,7 @@ export async function storeToFilecoin(receipt: WorkReceiptPayload): Promise<File
     return data;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Network error';
-    console.warn('[GenoSync] Filecoin upload failed:', message);
+    console.warn('[Bio-Ledger] Filecoin upload failed:', message);
     return { cid: null, gateway_url: null, status: 'failed', message };
   }
 }

@@ -23,8 +23,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["images/*.png"],
       manifest: {
-        name: "GenoSync: Sovereign Vault",
-        short_name: "GenoSync",
+        name: "Bio-Ledger: Sovereign Vault",
+        short_name: "Bio-Ledger",
         description: "A Verifiable Life-Graph. Prove Sustainable Flow.",
         theme_color: "#2D1B4E",
         background_color: "#2D1B4E",

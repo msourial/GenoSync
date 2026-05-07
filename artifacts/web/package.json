@@ -76,6 +76,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@coinbase/wallet-sdk": "^4.3.0",
     "@mediapipe/tasks-vision": "^0.10.34",
     "@privy-io/react-auth": "^3.18.0",
     "@worldcoin/idkit": "^4.0.11",

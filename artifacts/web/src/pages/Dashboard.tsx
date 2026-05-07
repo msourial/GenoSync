@@ -43,10 +43,11 @@ import MeditationMode, { type MeditationResult } from '@/components/MeditationMo
 import BrainwaveVisualizer from '@/components/BrainwaveVisualizer';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, signMeditationReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
-import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
+import { useListReceipts, useCreateReceipt } from '@genosync/api-client-react';
 import type { WearableSource } from '@/pages/LockScreen';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { getAuraBalance, mintAuraTokens } from '@/lib/aura-token';
+import { activeChain } from '@/lib/chains';
 
 interface DashboardProps {
   nullifierHash: string;
@@ -153,7 +154,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     try {
       const res = await fetch(url);
       if (!res.ok) {
-        console.error('[GenoSync] Export failed — server returned', res.status);
+        console.error('[Bio-Ledger] Export failed — server returned', res.status);
         return;
       }
       const blob = await res.blob();
@@ -164,7 +165,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       a.click();
       URL.revokeObjectURL(objectUrl);
     } catch (err) {
-      console.error('[GenoSync] Export failed', err);
+      console.error('[Bio-Ledger] Export failed', err);
     }
   }, []);
 
@@ -183,7 +184,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     if (isDemoRef.current) return; // Don't interrupt demo mode
     setIsSessionActive(false);
     physicalIntegrityRef.current = false;
-    console.log('[GenoSync] Interruption Event: focus timer paused');
+    console.log('[Bio-Ledger] Interruption Event: focus timer paused');
   }, []);
   const motionLock = useMotionLock(isSessionActive, handleMotionInterrupt);
 
@@ -281,7 +282,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       presenceLostAlerted.current = true;
       setIsSessionActive(false);
       physicalIntegrityRef.current = false;
-      console.log('[GenoSync] Sovereign Presence Lost — flow paused');
+      console.log('[Bio-Ledger] Sovereign Presence Lost — flow paused');
     }
     if (!presenceLost) {
       presenceLostAlerted.current = false;
@@ -433,14 +434,47 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     setXpToast({ xp: xpAwarded, type: challenge.type, method: challenge.verificationMethod });
     xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
 
-    // Attempt to mint AURA tokens on Flow EVM Testnet
-    if (walletAddress && privy.privyAvailable) {
+    // Encrypt the bio receipt off-chain via AWS KMS before any on-chain action
+    if (walletAddress) {
       try {
-        const provider = await privy.getProvider?.();
-        if (provider) {
-          const result = await mintAuraTokens(provider, walletAddress as `0x${string}`, xpAwarded);
-          if (result.hash) setLastMintHash(result.hash);
-        }
+        await fetch(`${apiBase}/api/bio/encrypt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress,
+            payload: {
+              kind: 'wellness-challenge',
+              challengeType: challenge.type,
+              verificationMethod: challenge.verificationMethod,
+              xpAwarded,
+              completedAt: new Date().toISOString(),
+              chain: activeChain.name,
+            },
+          }),
+        });
+      } catch (err) {
+        console.warn('[KMS] off-chain encryption failed (non-fatal):', err);
+      }
+    }
+
+    // Attempt to mint AURA tokens on the active chain (Base / Base Sepolia)
+    const cbwKind = localStorage.getItem('bio_ledger_wallet_kind') === 'coinbase-smart-wallet';
+    let provider: unknown = null;
+    if (walletAddress && cbwKind) {
+      try {
+        const { getCoinbaseSmartWalletProvider } = await import('@/lib/coinbase-smart-wallet');
+        provider = getCoinbaseSmartWalletProvider();
+      } catch (err) {
+        console.warn('[Coinbase Smart Wallet] provider unavailable:', err);
+      }
+    } else if (walletAddress && privy.privyAvailable) {
+      provider = await privy.getProvider?.();
+    }
+
+    if (walletAddress && provider) {
+      try {
+        const result = await mintAuraTokens(provider as never, walletAddress as `0x${string}`, xpAwarded);
+        if (result.hash) setLastMintHash(result.hash);
       } catch (err) {
         console.warn('[AURA Token] Mint attempt failed:', err);
       }
@@ -666,7 +700,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       );
     } catch (err) {
       // Safety net: always clear filing state so user isn't stuck
-      console.error('[GenoSync] Session complete error:', err);
+      console.error('[Bio-Ledger] Session complete error:', err);
       setIsFiling(false);
       setFilingPhase(null);
       setTimeLeft(POMODORO_TIME);
@@ -1070,7 +1104,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
             });
             console.log('🧠 Neurotech: Meditation receipt filed');
           } catch (err) {
-            console.warn('[GenoSync] Meditation receipt signing failed:', err);
+            console.warn('[Bio-Ledger] Meditation receipt signing failed:', err);
           }
         }}
         hrv={hrv}
@@ -1162,14 +1196,22 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                 <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
               </motion.div>
               {walletAddress && (
-                <div className="flex items-center gap-1.5 px-3 py-1 border border-teal-400/30 bg-teal-500/8 rounded-full w-fit">
-                  <span className="font-pixel text-[7px] text-teal-300 tracking-widest">FLOW EVM</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 border border-blue-400/30 bg-blue-500/8 rounded-full w-fit">
+                  <span className="font-pixel text-[7px] text-blue-300 tracking-widest">{activeChain.name.toUpperCase()}</span>
                   <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                  <span className="font-pixel text-[7px] text-teal-400/80 tracking-wider">
+                  <span className="font-pixel text-[7px] text-blue-400/80 tracking-wider">
                     {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                   </span>
                 </div>
               )}
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 border border-emerald-400/30 bg-emerald-500/8 rounded-full w-fit"
+                title="Off-chain bio data is envelope-encrypted via AWS KMS before storage"
+              >
+                <span className="font-pixel text-[7px] text-emerald-300 tracking-widest">AWS KMS</span>
+                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                <span className="font-pixel text-[7px] text-emerald-400/80 tracking-wider">ENCRYPTED</span>
+              </div>
             </div>
             {/* Wellness XP progress bar — always visible in header */}
             {(() => {
