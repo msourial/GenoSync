@@ -48,6 +48,8 @@ import type { WearableSource } from '@/pages/LockScreen';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
 import { getAuraBalance, mintAuraTokens } from '@/lib/aura-token';
 import { activeChain } from '@/lib/chains';
+import { isPaymasterEnabled } from '@/lib/coinbase-smart-wallet';
+import IdentityCard from '@/components/IdentityCard';
 
 interface DashboardProps {
   nullifierHash: string;
@@ -475,6 +477,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       try {
         const result = await mintAuraTokens(provider as never, walletAddress as `0x${string}`, xpAwarded);
         if (result.hash) setLastMintHash(result.hash);
+        if (result.sponsored) {
+          console.log('[AURA Token] Mint gas-sponsored via Coinbase Paymaster');
+        }
       } catch (err) {
         console.warn('[AURA Token] Mint attempt failed:', err);
       }
@@ -1212,7 +1217,38 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                 <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
                 <span className="font-pixel text-[7px] text-emerald-400/80 tracking-wider">ENCRYPTED</span>
               </div>
+              {isPaymasterEnabled() && (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1 border border-yellow-400/30 bg-yellow-500/8 rounded-full w-fit"
+                  title="Coinbase Paymaster sponsors gas — users mint AURA without paying"
+                >
+                  <span className="font-pixel text-[7px] text-yellow-300 tracking-widest">PAYMASTER</span>
+                  <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                  <span className="font-pixel text-[7px] text-yellow-400/80 tracking-wider">GAS SPONSORED</span>
+                </div>
+              )}
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 border border-amber-300/30 bg-amber-300/8 rounded-full w-fit"
+                title="Wellness coach powered by Claude on AWS Bedrock"
+              >
+                <span className="font-pixel text-[7px] text-amber-200 tracking-widest">BEDROCK</span>
+                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                <span className="font-pixel text-[7px] text-amber-300/80 tracking-wider">CLAUDE COACH</span>
+              </div>
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 border border-fuchsia-400/30 bg-fuchsia-500/8 rounded-full w-fit"
+                title="Cross-chain AURA — also mintable as SPL on Solana"
+              >
+                <span className="font-pixel text-[7px] text-fuchsia-300 tracking-widest">SOLANA</span>
+                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                <span className="font-pixel text-[7px] text-fuchsia-400/80 tracking-wider">SPL AURA</span>
+              </div>
             </div>
+            {walletAddress && (
+              <div className="mt-3 max-w-md">
+                <IdentityCard walletAddress={walletAddress} />
+              </div>
+            )}
             {/* Wellness XP progress bar — always visible in header */}
             {(() => {
               const xp = wellnessCoach.totalXP + sessionBonusXP;

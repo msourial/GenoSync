@@ -9,8 +9,11 @@ import type { WearableSource, VerifyPayload } from "@/pages/LockScreen";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
 import PrivyProviderWrapper from "@/providers/PrivyProviderWrapper";
+import OnchainKitProviderWrapper from "@/providers/OnchainKitProviderWrapper";
+import SolanaProviderWrapper from "@/providers/SolanaProviderWrapper";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { usePrivySafe } from "@/hooks/use-privy-safe";
+import "@coinbase/onchainkit/styles.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,16 +110,20 @@ function AppRouter() {
 function App() {
   return (
     <ErrorBoundary>
-      <PrivyProviderWrapper>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AppRouter />
-            </WouterRouter>
-            <Toaster />
-          </TooltipProvider>
-        </QueryClientProvider>
-      </PrivyProviderWrapper>
+      <QueryClientProvider client={queryClient}>
+        <OnchainKitProviderWrapper>
+          <SolanaProviderWrapper>
+            <PrivyProviderWrapper>
+              <TooltipProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <AppRouter />
+                </WouterRouter>
+                <Toaster />
+              </TooltipProvider>
+            </PrivyProviderWrapper>
+          </SolanaProviderWrapper>
+        </OnchainKitProviderWrapper>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

@@ -18,6 +18,10 @@
 | **Coinbase Smart Wallet** | Passkey login (FaceID / TouchID) via `@coinbase/wallet-sdk` | [`artifacts/web/src/lib/coinbase-smart-wallet.ts`](artifacts/web/src/lib/coinbase-smart-wallet.ts) |
 | **Multi-chain switch** | `VITE_GENOSYNC_CHAIN` selects Base / Base Sepolia / Flow at build time | [`artifacts/web/src/lib/chains.ts`](artifacts/web/src/lib/chains.ts) |
 | **Encrypted bio API** | `POST /api/bio/encrypt`, `POST /api/bio/:id/decrypt`, `GET /api/bio/by-wallet/:address` | [`artifacts/api/src/routes/bio.ts`](artifacts/api/src/routes/bio.ts) |
+| **Coinbase OnchainKit** | `OnchainKitProvider` wraps the app; on-chain Identity card (Avatar / Name / Address / Balance / Coinbase-verified Badge) on Dashboard | [`artifacts/web/src/providers/OnchainKitProviderWrapper.tsx`](artifacts/web/src/providers/OnchainKitProviderWrapper.tsx), [`artifacts/web/src/components/IdentityCard.tsx`](artifacts/web/src/components/IdentityCard.tsx) |
+| **Coinbase Paymaster** | EIP-5792 `wallet_sendCalls` with `paymasterService` capability — AURA mints are gas-free for users when `VITE_COINBASE_PAYMASTER_URL` is set | [`artifacts/web/src/lib/aura-token.ts`](artifacts/web/src/lib/aura-token.ts) |
+| **AWS Bedrock (Claude AI)** | Wellness coach powered by `anthropic.claude-3-5-sonnet` on Bedrock; `/api/coach` route, mock mode for local dev | [`artifacts/api/src/lib/bedrock.ts`](artifacts/api/src/lib/bedrock.ts), [`artifacts/api/src/routes/coach.ts`](artifacts/api/src/routes/coach.ts) |
+| **Solana cross-chain** | Wallet adapter (Phantom) + SPL AURA mint helper — same 1 XP = 1 AURA reward, mintable on Solana too | [`artifacts/web/src/providers/SolanaProviderWrapper.tsx`](artifacts/web/src/providers/SolanaProviderWrapper.tsx), [`artifacts/web/src/lib/solana-aura.ts`](artifacts/web/src/lib/solana-aura.ts) |
 
 ---
 

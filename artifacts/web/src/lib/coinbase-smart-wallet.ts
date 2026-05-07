@@ -5,6 +5,18 @@ import { activeChain, base, baseSepolia } from '@/lib/chains';
 let cachedSdk: ReturnType<typeof createCoinbaseWalletSDK> | null = null;
 let cachedProvider: ProviderInterface | null = null;
 
+/**
+ * Coinbase Paymaster RPC URL — when set, the Smart Wallet sponsors gas for
+ * userOperations on Base/Base Sepolia, so users mint AURA without paying gas.
+ *
+ * Get one at https://www.coinbase.com/developer-platform/products/paymaster.
+ */
+export const PAYMASTER_URL = (import.meta.env.VITE_COINBASE_PAYMASTER_URL as string | undefined) ?? '';
+
+export function isPaymasterEnabled(): boolean {
+  return PAYMASTER_URL.length > 0;
+}
+
 function ensureSdk() {
   if (cachedSdk) return cachedSdk;
   cachedSdk = createCoinbaseWalletSDK({
@@ -14,6 +26,9 @@ function ensureSdk() {
     preference: {
       options: 'smartWalletOnly',
     },
+    // The Smart Wallet picks up paymaster capabilities from the OnchainKitProvider
+    // config (paymaster: VITE_COINBASE_PAYMASTER_URL). When empty, transactions are
+    // user-paid; when set, the paymaster sponsors gas via EIP-5792 capabilities.
   });
   return cachedSdk;
 }

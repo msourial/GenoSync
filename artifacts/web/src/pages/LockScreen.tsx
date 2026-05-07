@@ -448,6 +448,16 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               <span className="w-1.5 h-1.5 rounded-full inline-block bg-emerald-400" />
               AWS KMS
             </div>
+            <span className="text-muted-foreground/20">|</span>
+            <div className="flex items-center gap-1.5 text-fuchsia-400/80">
+              <span className="w-1.5 h-1.5 rounded-full inline-block bg-fuchsia-400" />
+              SOLANA
+            </div>
+            <span className="text-muted-foreground/20">|</span>
+            <div className="flex items-center gap-1.5 text-amber-300/80">
+              <span className="w-1.5 h-1.5 rounded-full inline-block bg-amber-300" />
+              BEDROCK
+            </div>
           </div>
 
           {verifyError && (
