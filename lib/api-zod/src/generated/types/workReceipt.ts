@@ -11,8 +11,10 @@ import type { WorkReceiptReceiptType } from "./workReceiptReceiptType";
 
 export interface WorkReceipt {
   id: number;
-  /** World ID nullifier hash identifying the user */
-  nullifierHash: string;
+  /** Solana wallet address identifying the user */
+  solanaWallet: string;
+  /** Whether the user has a verified Civic Pass */
+  civicVerified?: boolean;
   sessionStats: SessionStats;
   /** HMAC signature from the Companion Agent */
   companionSignature: string;

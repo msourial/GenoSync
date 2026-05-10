@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GatewayProvider, useGateway, GatewayStatus } from '@civic/solana-gateway-react';
+import { GatewayProvider, useGateway } from '@civic/solana-gateway-react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { ConnectionProvider, WalletProvider, useWallet } from '@solana/wallet-adapter-react';
+import { ConnectionProvider, WalletProvider, useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { clusterApiUrl, PublicKey, Connection } from '@solana/web3.js';
-import { PixelButton, PixelPanel } from '@/components/PixelUI';
-import { Lock, ShieldCheck, Cpu, Activity, WifiOff, AlertTriangle, Heart, Dumbbell, Wallet, CheckCircle2, Eye, EyeOff, ArrowLeft, Mail } from 'lucide-react';
+import { PixelButton, NeonText, PixelPanel } from '@/components/PixelUI';
+import { Lock, ShieldCheck, Cpu, Activity, WifiOff, AlertTriangle, Heart, Dumbbell, Wallet, CheckCircle2, Eye, EyeOff, ArrowLeft, Mail, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -27,16 +27,16 @@ interface LockScreenProps {
 }
 
 type Phase =
-  | 'idle'
-  | 'civic-verifying'
-  | 'civic-done'
-  | 'wallet-connect'
-  | 'wallet-done'
-  | 'wearable-pick'
-  | 'wearable-login'
-  | 'bio-connecting'
-  | 'bio-done'
-  | 'entering';
+  | 'idle'            // Step 1: Solana wallet + Civic Pass
+  | 'civic-verifying' // Step 1: Civic Pass verification
+  | 'civic-done'      // Step 1 complete → user clicks to proceed
+  | 'wallet-connect'  // Step 2: Privy wallet creation/linking
+  | 'wallet-done'     // Step 2 complete → show wearable picker
+  | 'wearable-pick'   // Step 3: Choose device
+  | 'wearable-login'  // Step 3: Login form for selected device
+  | 'bio-connecting'  // Step 3: Device connection animation
+  | 'bio-done'        // Step 3 complete
+  | 'entering';       // Transitioning to dashboard
 
 const CIVIC_STEPS = [
   'CONNECTING TO SOLANA...',
@@ -45,6 +45,8 @@ const CIVIC_STEPS = [
   'CONFIRMING HUMANITY...',
   'IDENTITY CONFIRMED',
 ];
+
+// No fake wallet steps — Privy handles the real flow
 
 const WHOOP_STEPS = [
   'HANDSHAKE WITH WHOOP API V2...',
@@ -61,78 +63,152 @@ const FITBIT_STEPS = [
   'FITBIT CONNECTED',
 ];
 
+interface WorldIdConfig {
+  configured: boolean;
+  app_id: string | null;
+  action: string;
+  rp_id: string | null;
+}
+
+interface RpContext {
+  rp_id: string;
+  nonce: string;
+  created_at: number;
+  expires_at: number;
+  signature: string;
+}
+
 const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
-const GATEKEEPER_NETWORK = new PublicKey('uniqobk8s9S59DC2L7E8URTCtD9s6P8zTJW7vr3bX1y');
-
-function LockScreenInner({ onVerify }: LockScreenProps) {
+export default function LockScreen({ onVerify }: LockScreenProps) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [stepIndex, setStepIndex] = useState(0);
-  const [solanaWallet, setSolanaWallet] = useState('');
-  const [civicVerified, setCivicVerified] = useState(false);
+  const [nullifier, setNullifier] = useState('');
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [bioSourceConnected, setBioSourceConnected] = useState(false);
   const [selectedWearable, setSelectedWearable] = useState<WearableSource>('demo');
+
+  const [worldIdConfig, setWorldIdConfig] = useState<WorldIdConfig | null>(null);
+  const [rpContext, setRpContext] = useState<RpContext | null>(null);
+  const [widgetOpen, setWidgetOpen] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
+  // Wearable login form
   const [wearableEmail, setWearableEmail] = useState('');
   const [wearablePassword, setWearablePassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  const { publicKey, connected } = useWallet();
-  const { gatewayStatus, requestGatewayToken } = useGateway();
-  
-  const isGatewayActive = gatewayStatus === GatewayStatus.ACTIVE;
-
+  // Privy
   const privy = usePrivySafe();
   const privyAvailable = privy.privyAvailable;
 
+  // Load World ID config
   useEffect(() => {
-    if (phase === 'idle' && connected && publicKey) {
-      const walletStr = publicKey.toString();
-      setSolanaWallet(walletStr);
-      localStorage.setItem('genosync_solana_wallet', walletStr);
-      
-      if (gatewayStatus === GatewayStatus.ACTIVE) {
-        setCivicVerified(true);
-        setPhase('civic-done');
-      } else {
-        setPhase('civic-verifying');
-      }
-    }
-  }, [phase, connected, publicKey, gatewayStatus]);
+    fetch(`${API}/api/world-id/config`)
+      .then((r) => r.json())
+      .then((cfg: WorldIdConfig) => setWorldIdConfig(cfg))
+      .catch(() =>
+        setWorldIdConfig({ configured: false, app_id: null, action: 'genosync-verify', rp_id: null })
+      );
+  }, []);
 
-  useEffect(() => {
-    if (phase === 'civic-verifying') {
-      setStepIndex(0);
-      CIVIC_STEPS.forEach((_, i) => {
-        setTimeout(() => {
-          setStepIndex(i);
-          if (i === CIVIC_STEPS.length - 1) {
-            setTimeout(() => {
-              setCivicVerified(gatewayStatus === GatewayStatus.ACTIVE);
-              setPhase('civic-done');
-            }, 700);
-          }
-        }, i * 700);
-      });
-    }
-  }, [phase, gatewayStatus]);
+  // ─── Step 1: World ID ──────────────────────────────────────────────────
 
-  const handleRequestCivicPass = async () => {
-    if (!requestGatewayToken) {
-      setVerifyError('Civic gateway not initialized. Please try again.');
+  function runCivicSimulation(existingWallet?: string) {
+    const wallet = existingWallet ?? generateTempWallet();
+    setSolanaWallet(wallet);
+    setPhase('civic-verifying');
+    setStepIndex(0);
+    CIVIC_STEPS.forEach((_, i) => {
+      setTimeout(() => {
+        setStepIndex(i);
+        if (i === CIVIC_STEPS.length - 1) setTimeout(() => setPhase('civic-done'), 700);
+      }, i * 700);
+    });
+  }
+
+  const handleWorldId = async () => {
+    if (phase !== 'idle') return;
+    if (worldIdConfig === null) return;
+    setVerifyError(null);
+
+    const existing = localStorage.getItem('bio_ledger_nullifier');
+
+    if (!worldIdConfig.configured) {
+      runSimulation(existing ?? undefined);
       return;
     }
+
     try {
-      await requestGatewayToken();
+      const res = await fetch(`${API}/api/world-id/rp-context`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `RP context request failed (${res.status})`);
+      }
+      const ctx: RpContext = await res.json();
+      setRpContext(ctx);
+      setWidgetOpen(true);
     } catch (err) {
-      console.error('Civic pass request failed:', err);
-      setVerifyError('Civic verification failed. Please try again.');
+      console.error('[World ID] RP context error:', err);
+      runSimulation();
     }
   };
+
+  const handleVerify = useCallback(async (result: IDKitResult) => {
+    const response = result.responses?.[0];
+    if (!response) throw new Error('No credential in proof result');
+
+    let nullifier_hash: string;
+    let proof: string | string[];
+    let merkle_root: string | undefined;
+
+    if (result.protocol_version === '3.0') {
+      const r = response as { nullifier: string; proof: string; merkle_root: string };
+      nullifier_hash = r.nullifier;
+      proof = r.proof;
+      merkle_root = r.merkle_root;
+    } else {
+      const r = response as { nullifier: string; proof: string[] };
+      nullifier_hash = r.nullifier;
+      proof = r.proof;
+    }
+
+    const verifyRes = await fetch(`${API}/api/verify-world-id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nullifier_hash,
+        merkle_root,
+        proof,
+        verification_level: 'device',
+        protocol_version: result.protocol_version,
+      }),
+    });
+
+    if (!verifyRes.ok) {
+      const err = await verifyRes.json().catch(() => ({})) as { error?: string };
+      throw new Error(err.error ?? 'Server verification failed');
+    }
+
+    const data = await verifyRes.json() as { nullifier_hash: string };
+    localStorage.setItem('bio_ledger_nullifier', data.nullifier_hash);
+    setNullifier(data.nullifier_hash);
+  }, []);
+
+  const handleSuccess = useCallback((_result: IDKitResult) => {
+    setWidgetOpen(false);
+    setPhase('zk-done');
+  }, []);
+
+  const handleError = useCallback(() => {
+    setWidgetOpen(false);
+    runSimulation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Step 1 done → user clicks to proceed ──────────────────────────────
 
   const handleProceedToWallet = () => {
     if (privyAvailable) {
@@ -142,16 +218,20 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
     }
   };
 
+  // ─── Step 2: Privy Wallet (real auth) ───────────────────────────────────
+
+  // When Privy authenticates and wallet is ready, show wallet-done
   useEffect(() => {
     if (phase !== 'wallet-connect') return;
     if (!privy.authenticated || !privy.user?.wallet?.address) return;
 
     const addr = privy.user.wallet.address;
     setWalletAddress(addr);
-    localStorage.setItem('genosync_privy_wallet', addr);
+    localStorage.setItem('bio_ledger_wallet_address', addr);
     setPhase('wallet-done');
   }, [phase, privy.authenticated, privy.user?.wallet?.address]);
 
+  // wallet-done → user clicks to proceed to wearable
   const handleProceedToWearable = () => {
     setPhase('wearable-pick');
   };
@@ -159,6 +239,8 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
   const handleSkipWallet = () => {
     setPhase('wearable-pick');
   };
+
+  // ─── Step 3: Wearable ──────────────────────────────────────────────────
 
   const runWearableConnection = (source: WearableSource, steps: string[], apiPath: string) => {
     setSelectedWearable(source);
@@ -178,8 +260,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
             setTimeout(() => {
               setPhase('entering');
               setTimeout(() => onVerify({
-                solanaWallet,
-                civicVerified,
+                nullifierHash: nullifier,
                 walletAddress,
                 bioSourceConnected: isReal,
                 wearableSource: source,
@@ -209,6 +290,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
     setLoginError(null);
     setIsLoggingIn(true);
 
+    // Simulate OAuth token exchange delay
     setTimeout(() => {
       setIsLoggingIn(false);
       const apiPath = selectedWearable === 'fitbit' ? '/api/auth/fitbit' : '/api/auth/whoop';
@@ -229,8 +311,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
     setTimeout(() => {
       setPhase('entering');
       setTimeout(() => onVerify({
-        solanaWallet,
-        civicVerified,
+        nullifierHash: nullifier,
         walletAddress,
         bioSourceConnected: false,
         wearableSource: 'demo',
@@ -238,19 +319,48 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
     }, 1000);
   };
 
+  // ─── Animation step arrays ─────────────────────────────────────────────
+
   const bioSteps = selectedWearable === 'fitbit' ? FITBIT_STEPS : WHOOP_STEPS;
 
-  const step1Done = !['idle', 'civic-verifying'].includes(phase);
-  const step2Done = !['idle', 'civic-verifying', 'civic-done', 'wallet-connect'].includes(phase);
+  // ─── World ID widget props ─────────────────────────────────────────────
+
+  const widgetProps =
+    worldIdConfig?.configured && worldIdConfig.app_id && rpContext
+      ? {
+          app_id: worldIdConfig.app_id as `app_${string}`,
+          action: worldIdConfig.action,
+          rp_context: rpContext,
+          allow_legacy_proofs: true as const,
+          preset: deviceLegacy(),
+          open: widgetOpen,
+          onOpenChange: setWidgetOpen,
+          handleVerify,
+          onSuccess: handleSuccess,
+          onError: handleError,
+        }
+      : null;
+
+  // ─── Which steps are "done" for progress indicator ─────────────────────
+
+  const step1Done = !['idle', 'zk-verifying'].includes(phase);
+  const step2Done = !['idle', 'zk-verifying', 'zk-done', 'wallet-connect'].includes(phase);
   const step3Done = ['bio-done', 'entering'].includes(phase);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-background">
+      {/* Aurora background orbs */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <div className="aurora-blob aurora-blob-1" />
         <div className="aurora-blob aurora-blob-2" />
         <div className="aurora-blob aurora-blob-3" />
       </div>
+
+      {widgetProps && (
+        <IDKitRequestWidget {...widgetProps}>
+          {() => null}
+        </IDKitRequestWidget>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -262,6 +372,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
           variant="primary"
           className="flex flex-col items-center py-10 px-8 text-center bg-card/90 backdrop-blur-sm"
         >
+          {/* Aurora orb logo */}
           <motion.div
             animate={{ y: [0, -8, 0], scale: [1, 1.04, 1] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
@@ -288,6 +399,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
             Your AI coach & shadow for sustainable work
           </p>
 
+          {/* 3-step progress indicator */}
           <div className="w-full flex items-center gap-2 mb-6">
             <StepDot active={step1Done} completed={step1Done} label="1" />
             <div className={cn('flex-1 h-px transition-colors duration-700', step1Done ? 'bg-primary' : 'bg-muted/30')} />
@@ -296,20 +408,21 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
             <StepDot active={step3Done || phase === 'bio-connecting'} completed={step3Done} label="3" />
           </div>
           <div className="w-full flex justify-between font-pixel text-[7px] text-muted-foreground/50 mb-8 -mt-3 px-1">
-            <span>SOLANA ID</span>
+            <span>WORLD ID</span>
             <span>WALLET</span>
             <span>WEARABLE</span>
           </div>
 
+          {/* Status badges */}
           <div className="w-full flex items-center justify-center gap-3 mb-3 font-pixel text-[7px]">
-            <div className={cn('flex items-center gap-1.5', civicVerified ? 'text-primary/70' : 'text-muted-foreground/40')}>
-              <span className={cn('w-1.5 h-1.5 rounded-full inline-block', civicVerified ? 'bg-primary' : 'bg-muted-foreground/30')} />
-              {civicVerified ? 'CIVIC PASS' : 'DEMO MODE'}
+            <div className={`flex items-center gap-1.5 ${worldIdConfig?.configured ? 'text-primary/70' : 'text-muted-foreground/40'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${worldIdConfig?.configured ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+              {worldIdConfig?.configured ? 'ZK PROOF' : 'ZK DEMO'}
             </div>
             <span className="text-muted-foreground/20">|</span>
             <div className="flex items-center gap-1.5 text-violet-400/70">
               <span className="w-1.5 h-1.5 rounded-full inline-block bg-violet-400" />
-              SOLANA
+              FLOW EVM
             </div>
           </div>
 
@@ -327,6 +440,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
           <div className="w-full h-px bg-secondary mb-8 opacity-30" />
 
           <AnimatePresence mode="wait">
+            {/* ── Step 1: World ID Login ── */}
             {phase === 'idle' && (
               <motion.div
                 key="idle"
@@ -336,24 +450,27 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
                 className="flex flex-col gap-4 w-full"
               >
                 <p className="font-terminal text-sm text-muted-foreground mb-2 leading-relaxed">
-                  Connect your Solana wallet with Civic Pass to verify your identity and start working smarter.
+                  Your productivity coach is ready. Verify your identity to start working smarter and healthier.
                 </p>
-                
-                <WalletMultiButton className="wallet-adapter-button w-full bg-violet-600 hover:bg-violet-700 text-white font-terminal py-3 rounded-lg" />
-                
+                <PixelButton
+                  onClick={handleWorldId}
+                  disabled={worldIdConfig === null}
+                  className="w-full flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-wait"
+                >
+                  <Lock className="w-4 h-4" />
+                  {worldIdConfig === null ? 'Loading...' : 'Verify with World ID'}
+                </PixelButton>
                 <p className="font-pixel text-[8px] text-muted-foreground/40 mt-1">
-                  Uses Civic Pass for proof of humanity · No personal data stored
+                  Privacy-first · Your coach, your data, your proof
                 </p>
 
                 <div className="w-full h-px bg-white/10 mt-5 mb-3" />
                 <button
                   onClick={() => {
-                    const wallet = generateTempWallet();
-                    setSolanaWallet(wallet);
-                    localStorage.setItem('genosync_solana_wallet', wallet);
+                    const hash = generateNullifier();
+                    localStorage.setItem('bio_ledger_nullifier', hash);
                     onVerify({
-                      solanaWallet: wallet,
-                      civicVerified: false,
+                      nullifierHash: hash,
                       walletAddress: null,
                       bioSourceConnected: false,
                       wearableSource: 'demo',
@@ -363,18 +480,20 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
                     text-amber-300 bg-amber-500/10 border border-amber-400/30
                     hover:bg-amber-500/20 hover:text-amber-200 hover:shadow-[0_0_16px_rgba(245,158,11,0.2)]"
                 >
-                  ⚡ Skip to Demo — No wallet needed
+                  ⚡ Skip to Demo — No account needed
                 </button>
               </motion.div>
             )}
 
-            {phase === 'civic-verifying' && (
-              <StepAnimation steps={CIVIC_STEPS} stepIndex={stepIndex} label="VERIFYING CIVIC PASS..." />
+            {/* ── Step 1: ZK Animation ── */}
+            {phase === 'zk-verifying' && (
+              <StepAnimation steps={ZK_STEPS} stepIndex={stepIndex} label="VERIFYING WORLD ID..." />
             )}
 
-            {phase === 'civic-done' && (
+            {/* ── Step 1 Done → Continue to wallet ── */}
+            {phase === 'zk-done' && (
               <motion.div
-                key="civic-done"
+                key="zk-done"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
@@ -382,26 +501,14 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
               >
                 <div className="flex items-center justify-center gap-2 font-terminal text-base font-semibold" style={{ color: '#34d399' }}>
                   <ShieldCheck className="w-5 h-5" />
-                  {civicVerified ? 'Civic Pass verified!' : 'Wallet connected!'}
+                  Humanity verified!
                 </div>
-                {civicVerified && (
-                  <p className="font-terminal text-sm text-emerald-400/60">Proof of humanity confirmed</p>
+                {worldIdConfig?.configured && (
+                  <p className="font-terminal text-sm text-emerald-400/60">ZK proof verified on-chain</p>
                 )}
                 <p className="font-terminal text-sm text-muted-foreground/60 mt-1">
-                  Wallet: {solanaWallet.slice(0, 8)}...{solanaWallet.slice(-6)}
+                  Nullifier: {nullifier.slice(0, 10)}...{nullifier.slice(-6)}
                 </p>
-                
-                {!civicVerified && gatewayStatus !== GatewayStatus.ACTIVE && (
-                  <div className="w-full p-3 bg-amber-500/10 border border-amber-400/20 rounded-lg">
-                    <p className="font-terminal text-xs text-amber-300 mb-2">
-                      Civic Pass not detected. Get a pass for full verification.
-                    </p>
-                    <PixelButton onClick={handleRequestCivicPass} className="w-full text-xs">
-                      Request Civic Pass
-                    </PixelButton>
-                  </div>
-                )}
-                
                 <PixelButton
                   onClick={handleProceedToWallet}
                   className="w-full flex items-center justify-center gap-3 mt-2"
@@ -412,6 +519,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
+            {/* ── Step 2: Wallet Connection (real Privy) ── */}
             {phase === 'wallet-connect' && (
               <motion.div
                 key="wallet-connect"
@@ -465,6 +573,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
+            {/* ── Step 2 Done ── */}
             {phase === 'wallet-done' && (
               <motion.div
                 key="wallet-done"
@@ -496,6 +605,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
+            {/* ── Step 3: Wearable Picker ── */}
             {phase === 'wearable-pick' && (
               <motion.div
                 key="wearable-pick"
@@ -550,9 +660,21 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
                   <WifiOff className="w-4 h-4" />
                   Skip — use simulated data
                 </button>
+
+                <div className="flex items-center justify-center gap-3 pt-1">
+                  <span className="font-pixel text-[7px] text-muted-foreground/30 tracking-wider">COMING SOON</span>
+                  <div className="flex gap-2">
+                    {['Apple Watch', 'Garmin', 'Oura'].map((name) => (
+                      <span key={name} className="px-2 py-0.5 rounded-full border border-secondary/20 font-terminal text-[10px] text-muted-foreground/25">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </motion.div>
             )}
 
+            {/* ── Step 3b: Wearable Login Form ── */}
             {phase === 'wearable-login' && (
               <motion.div
                 key="wearable-login"
@@ -561,6 +683,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
                 exit={{ opacity: 0, x: -20 }}
                 className="flex flex-col gap-4 w-full"
               >
+                {/* Header with back button */}
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleBackToWearablePick}
@@ -591,7 +714,9 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
                   </div>
                 </div>
 
+                {/* Login form */}
                 <div className="w-full border-2 border-violet-500/20 rounded-xl bg-violet-500/5 p-5 space-y-4">
+                  {/* Email */}
                   <div className="space-y-1.5">
                     <label className="font-terminal text-[11px] text-muted-foreground/70 uppercase tracking-wider">
                       Email
@@ -609,6 +734,7 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
                     </div>
                   </div>
 
+                  {/* Password */}
                   <div className="space-y-1.5">
                     <label className="font-terminal text-[11px] text-muted-foreground/70 uppercase tracking-wider">
                       Password
@@ -666,14 +792,16 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
+            {/* ── Step 3: Bio Connection Animation ── */}
             {phase === 'bio-connecting' && (
               <StepAnimation
                 steps={bioSteps}
                 stepIndex={stepIndex}
-                label={selectedWearable === 'fitbit' ? 'CONNECTING FITBIT...' : 'CONNECTING WHOOP...'}
+                label={selectedWearable === 'fitbit' ? 'CONNECTING FITBIT VIA GOOGLE...' : 'CONNECTING WHOOP...'}
               />
             )}
 
+            {/* ── Final: Entry Animation ── */}
             {(phase === 'bio-done' || phase === 'entering') && (
               <motion.div
                 key="bio-done"
@@ -706,36 +834,10 @@ function LockScreenInner({ onVerify }: LockScreenProps) {
   );
 }
 
-export default function LockScreen(props: LockScreenProps) {
-  const network = WalletAdapterNetwork.Mainnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-  const wallets = useMemo(() => [new PhantomWalletAdapter(), new SolflareWalletAdapter()], []);
-  const connection = useMemo(() => new Connection(endpoint, 'confirmed'), [endpoint]);
-
-  return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>
-          <GatewayProvider
-            connection={connection}
-            gatekeeperNetwork={GATEKEEPER_NETWORK}
-            stage={'prod'}
-          >
-            <LockScreenInner {...props} />
-          </GatewayProvider>
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
-  );
-}
-
-function generateTempWallet(): string {
-  const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let result = '';
-  for (let i = 0; i < 44; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+function generateNullifier(): string {
+  const bytes = new Uint8Array(31);
+  crypto.getRandomValues(bytes);
+  return '0x' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function StepDot({ active, completed, label }: { active: boolean; completed?: boolean; label: string }) {

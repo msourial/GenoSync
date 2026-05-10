@@ -1,14 +1,15 @@
 import { Router, type IRouter } from "express";
-import { db, hasDb, inMemory, workReceiptsTable } from "@workspace/db";
+import { db, hasDb, inMemory, workReceiptsTable } from "@genosync/db";
 import { eq } from "drizzle-orm";
-import { CreateReceiptBody, ListReceiptsQueryParams } from "@workspace/api-zod";
+import { CreateReceiptBody, ListReceiptsQueryParams } from "@genosync/api-zod";
 
 const router: IRouter = Router();
 
 function formatReceipt(r: any) {
   return {
     id: r.id,
-    nullifierHash: r.nullifierHash,
+    solanaWallet: r.solanaWallet,
+    civicVerified: r.civicVerified,
     sessionStats: r.sessionStats,
     companionSignature: r.companionSignature,
     receiptCid: r.receiptCid ?? undefined,
@@ -28,10 +29,10 @@ router.get("/receipts", async (req, res) => {
     return;
   }
 
-  const { nullifier } = query.data;
+  const { wallet } = query.data;
 
-  if (!nullifier) {
-    res.status(400).json({ error: "nullifier query param is required" });
+  if (!wallet) {
+    res.status(400).json({ error: "wallet query param is required" });
     return;
   }
 
@@ -39,11 +40,11 @@ router.get("/receipts", async (req, res) => {
     const receipts = await db
       .select()
       .from(workReceiptsTable)
-      .where(eq(workReceiptsTable.nullifierHash, nullifier))
+      .where(eq(workReceiptsTable.solanaWallet, wallet))
       .orderBy(workReceiptsTable.createdAt);
     res.json(receipts.map(formatReceipt));
   } else {
-    res.json(inMemory.select(nullifier).map(formatReceipt));
+    res.json(inMemory.select(wallet).map(formatReceipt));
   }
 });
 

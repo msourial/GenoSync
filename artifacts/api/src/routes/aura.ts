@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { AuraChatBody } from "@workspace/api-zod";
-import { db, hasDb, inMemory, workReceiptsTable } from "@workspace/db";
+import { AuraChatBody } from "@genosync/api-zod";
+import { db, hasDb, inMemory, workReceiptsTable } from "@genosync/db";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -302,13 +302,13 @@ router.get("/aura/manifest", (_req, res) => {
 
 /* ─────────────────────────────────────────────────────────────
    GET /api/aura/logs — agent execution log (agent_log.json)
-   Query param: nullifier (required)
+   Query param: wallet (required) - Solana wallet address
 ───────────────────────────────────────────────────────────── */
 router.get("/aura/logs", async (req, res) => {
-  const nullifier = typeof req.query.nullifier === "string" ? req.query.nullifier : null;
+  const wallet = typeof req.query.wallet === "string" ? req.query.wallet : null;
 
-  if (!nullifier) {
-    res.status(400).json({ error: "nullifier query param is required" });
+  if (!wallet) {
+    res.status(400).json({ error: "wallet query param is required" });
     return;
   }
 
@@ -316,16 +316,16 @@ router.get("/aura/logs", async (req, res) => {
     ? await db
         .select()
         .from(workReceiptsTable)
-        .where(eq(workReceiptsTable.nullifierHash, nullifier))
+        .where(eq(workReceiptsTable.solanaWallet, wallet))
         .orderBy(desc(workReceiptsTable.createdAt))
-    : inMemory.select(nullifier).reverse();
+    : inMemory.select(wallet).reverse();
 
   type SessionStats = { durationSeconds?: number; apm?: number; hrv?: number; strain?: number; focusScore?: number };
 
   const log = {
     spec_version: "erc-8004-draft",
     agent_id: AGENT_ID,
-    nullifier_hash: nullifier,
+    wallet: wallet,
     exported_at: new Date().toISOString(),
     total_entries: receipts.length,
     entries: receipts.map((r, idx) => {
