@@ -2,7 +2,7 @@
 
 ### Sovereign Bio-Data — KMS-encrypted, on-chain attested, passkey-secured
 
-> GenoSync lets users own their health & bio data. Every payload is **envelope-encrypted with AWS KMS** before it ever touches storage, every wellness event is **attested on Base (Coinbase L2)**, and users sign in with a **Coinbase Smart Wallet** using FaceID/TouchID — no seed phrases, no extensions.
+> GenoSync lets users own their health & bio data. Every payload is **envelope-encrypted with AWS KMS** before it ever touches storage, every wellness event is **attested on Solana**, and users sign in with a **Coinbase Smart Wallet** using FaceID/TouchID — no seed phrases, no extensions.
 
 **Core principle.** The plaintext of a user's bio data should never exist outside an authenticated session. The blockchain is the audit trail; the KMS key is the gatekeeper; the passkey is the user's identity.
 
@@ -14,14 +14,14 @@
 |---|---|---|
 | **AWS deployment** | Full stack on AWS — no Vercel, no Heroku | [`infra/aws/`](infra/aws/) |
 | **AWS KMS encryption** | Envelope encryption (AES-256-GCM) for every off-chain bio payload | [`artifacts/api/src/lib/kms.ts`](artifacts/api/src/lib/kms.ts) |
-| **Base L2 contracts** | `AuraToken` ERC-20 deploys to Base / Base Sepolia (Coinbase L2) | [`artifacts/contracts/`](artifacts/contracts/) |
+| **Solana contracts** | `AuraToken` SPL token deploys to Solana Mainnet / Devnet | [`artifacts/contracts/`](artifacts/contracts/) |
 | **Coinbase Smart Wallet** | Passkey login (FaceID / TouchID) via `@coinbase/wallet-sdk` | [`artifacts/web/src/lib/coinbase-smart-wallet.ts`](artifacts/web/src/lib/coinbase-smart-wallet.ts) |
-| **Multi-chain switch** | `VITE_GENOSYNC_CHAIN` selects Base / Base Sepolia / Flow at build time | [`artifacts/web/src/lib/chains.ts`](artifacts/web/src/lib/chains.ts) |
+| **Multi-chain switch** | `VITE_GENOSYNC_CHAIN` selects Solana Mainnet / Devnet / Base at build time | [`artifacts/web/src/lib/chains.ts`](artifacts/web/src/lib/chains.ts) |
 | **Encrypted bio API** | `POST /api/bio/encrypt`, `POST /api/bio/:id/decrypt`, `GET /api/bio/by-wallet/:address` | [`artifacts/api/src/routes/bio.ts`](artifacts/api/src/routes/bio.ts) |
 | **Coinbase OnchainKit** | `OnchainKitProvider` wraps the app; on-chain Identity card (Avatar / Name / Address / Balance / Coinbase-verified Badge) on Dashboard | [`artifacts/web/src/providers/OnchainKitProviderWrapper.tsx`](artifacts/web/src/providers/OnchainKitProviderWrapper.tsx), [`artifacts/web/src/components/IdentityCard.tsx`](artifacts/web/src/components/IdentityCard.tsx) |
 | **Coinbase Paymaster** | EIP-5792 `wallet_sendCalls` with `paymasterService` capability — AURA mints are gas-free for users when `VITE_COINBASE_PAYMASTER_URL` is set | [`artifacts/web/src/lib/aura-token.ts`](artifacts/web/src/lib/aura-token.ts) |
 | **AWS Bedrock (Claude AI)** | Wellness coach powered by `anthropic.claude-3-5-sonnet` on Bedrock; `/api/coach` route, mock mode for local dev | [`artifacts/api/src/lib/bedrock.ts`](artifacts/api/src/lib/bedrock.ts), [`artifacts/api/src/routes/coach.ts`](artifacts/api/src/routes/coach.ts) |
-| **Solana cross-chain** | Wallet adapter (Phantom) + SPL AURA mint helper — same 1 XP = 1 AURA reward, mintable on Solana too | [`artifacts/web/src/providers/SolanaProviderWrapper.tsx`](artifacts/web/src/providers/SolanaProviderWrapper.tsx), [`artifacts/web/src/lib/solana-aura.ts`](artifacts/web/src/lib/solana-aura.ts) |
+| **Solana integration** | Wallet adapter (Phantom) + SPL AURA mint — same 1 XP = 1 AURA reward, native Solana experience | [`artifacts/web/src/providers/SolanaProviderWrapper.tsx`](artifacts/web/src/providers/SolanaProviderWrapper.tsx), [`artifacts/web/src/lib/solana-aura.ts`](artifacts/web/src/lib/solana-aura.ts) |
 
 ---
 
@@ -50,8 +50,8 @@
                           └─────┬───────────────────────┬───────────────────┘
                                 │                       │
               ┌─────────────────▼──────────┐   ┌────────▼───────────────────┐
-              │  AWS KMS                   │   │  Base (Coinbase L2)        │
-              │  alias/genosync-userdata  │   │  AuraToken ERC-20          │
+              │  AWS KMS                   │   │  Solana Blockchain          │
+              │  alias/genosync-userdata  │   │  AuraToken SPL Token        │
               │                            │   │   ─ mint(to, amount)        │
               │  GenerateDataKey / Decrypt │   │   ─ mintWithReceipt(        │
               │  EncryptionContext binds   │   │       to, amount, rcpt)     │
@@ -109,8 +109,8 @@
        │                             │    │                        │
        │  Passkey · FaceID / TouchID │    │  Email magic-link      │
        │  Smart-contract wallet on   │    │  EOA on Base           │
-       │  Base — gas-free UX via     │    │                        │
-       │  paymaster                  │    │                        │
+       │  Solana — sub-cent fees     │    │                        │
+       │  via wallet adapter        │    │                        │
        └──────────────┬──────────────┘    └─────────────┬──────────┘
                       │                                 │
                       └──────────────┬──────────────────┘
@@ -122,7 +122,7 @@
               ┌──────────────────────┼──────────────────────────────┐
               ▼                                                     ▼
    POST /api/bio/encrypt                                 AuraToken.mint(to, amount)
-   (envelope-encrypted via KMS)                          on Base / Base Sepolia
+   (envelope-encrypted via KMS)                          on Solana Mainnet / Devnet
               │                                                     │
               ▼                                                     ▼
    Off-chain encrypted bio record                        On-chain ERC-20 receipt
@@ -142,16 +142,17 @@ GenoSync-main/
 │   ├── web/                           React 19 / Vite 7 PWA (S3 + CloudFront)
 │   │   └── src/
 │   │       ├── lib/
-│   │       │   ├── chains.ts          Base / Base Sepolia / Flow EVM defs
+│   │       │   ├── chains.ts          Solana Mainnet / Devnet / Base EVM defs
 │   │       │   ├── coinbase-smart-wallet.ts   passkey-only SDK adapter
-│   │       │   └── aura-token.ts      mint / balance against activeChain
+│   │       │   ├── solana-aura.ts      SPL token mint / balance for Solana
+│   │       │   └── aura-token.ts      ERC-20 mint / balance for Base (fallback)
 │   │       ├── hooks/
 │   │       │   └── use-coinbase-smart-wallet.ts   React state for the SDK
 │   │       └── pages/LockScreen.tsx   passkey-first wallet step
-│   └── contracts/                     Hardhat — AuraToken on Base
-│       ├── contracts/AuraToken.sol    OpenZeppelin v5, mintWithReceipt
-│       ├── scripts/deploy.ts          deploy + auto-verify on BaseScan
-│       └── hardhat.config.ts          base + baseSepolia networks
+│   └── contracts/                     Anchor — AuraToken SPL on Solana
+│       ├── contracts/AuraToken.sol    SPL Token with mintWithReceipt
+│       ├── scripts/deploy-solana.ts   deploy + auto-verify on Solana Explorer
+│       └── anchor.ts                  Solana program configuration
 └── infra/
     └── aws/
         ├── cloudformation-genosync.yml   one-shot stack provisioning
@@ -171,7 +172,7 @@ GenoSync-main/
 | **Backend** | Express 5, pino, Drizzle ORM, PostgreSQL | **AWS ECS Fargate** (image in ECR) |
 | **Encryption** | AWS KMS (envelope), AES-256-GCM, `@aws-sdk/client-kms` v3 | **AWS KMS** (HSM-backed key) |
 | **Wallets** | `@coinbase/wallet-sdk` 4.x (`smartWalletOnly`), `@privy-io/react-auth` (fallback) | client-side / passkeys via WebAuthn |
-| **Blockchain** | Solidity 0.8.24, OpenZeppelin v5, Hardhat, viem 2.x | **Base** (chain 8453) / **Base Sepolia** (84532) |
+| **Blockchain** | Solana (Anchor Framework), SPL Tokens, Phantom Wallet, Base fallback (ERC-20) | **Solana Mainnet** / **Devnet** |
 | **Identity** | World ID (`@worldcoin/idkit`) | client + server verification |
 | **Storage** | Filecoin / IPFS via `@storacha/client` | off-chain receipts |
 
@@ -198,7 +199,7 @@ cat > artifacts/web/.env <<EOF
 PORT=5173
 API_PORT=3000
 VITE_API_BASE_URL=
-VITE_GENOSYNC_CHAIN=base-sepolia
+VITE_GENOSYNC_CHAIN=solana-devnet
 VITE_AURA_TOKEN_ADDRESS=
 EOF
 
@@ -208,6 +209,9 @@ pnpm --filter @genosync/api run start &
 
 # 4. start the web (port 5173, proxies /api → :3000)
 pnpm --filter @genosync/web run dev
+
+# 5. optional: start Solana validator for local testing
+solana-test-validator
 ```
 
 Open **http://localhost:5173**.
@@ -287,8 +291,8 @@ export GENOSYNC_ECS_SERVICE=genosync-api
 
 ```bash
 export VITE_API_BASE_URL=https://api.genosync.app
-export VITE_GENOSYNC_CHAIN=base-sepolia        # or "base" for mainnet
-export VITE_AURA_TOKEN_ADDRESS=0x...            # from contracts deploy
+export VITE_GENOSYNC_CHAIN=solana-mainnet     # or "solana-devnet" for testing
+export VITE_AURA_TOKEN_ADDRESS=...            # from Solana program deploy
 
 bash infra/aws/deploy-frontend.sh
 ```
@@ -319,24 +323,24 @@ First-time deploys also need a service registered against the task definition in
 ```bash
 cd artifacts/contracts
 cp .env.example .env
-# fill in DEPLOYER_PRIVATE_KEY (fund with Base Sepolia faucet ETH)
-# optional: BASESCAN_API_KEY for auto-verification
+# fill in DEPLOYER_PRIVATE_KEY (fund with Solana devnet faucet SOL)
+# optional: SOLANA_EXPLORER_API_KEY for auto-verification
 
 pnpm install
-pnpm run deploy:base-sepolia    # or deploy:base for mainnet
+pnpm run deploy:solana-devnet    # or deploy:solana-mainnet for mainnet
 ```
 
 Output:
 ```
-Deploying AuraToken to baseSepolia (chainId 84532)
-Deployer: 0x...
-Balance:  0.05 ETH
+Deploying AuraToken SPL to solana-devnet
+Deployer: 5D...
+Balance:  2 SOL
 
-AuraToken deployed: 0xABC...
-BaseScan Sepolia: https://sepolia.basescan.org/address/0xABC...
+AuraToken program deployed: 8z9...
+Solana Explorer: https://explorer.solana.com/address/8z9...
 ```
 
-Copy the address into `artifacts/web/.env` as `VITE_AURA_TOKEN_ADDRESS=0xABC...` and redeploy the frontend.
+Copy the program ID into `artifacts/web/.env` as `VITE_AURA_TOKEN_ADDRESS=8z9...` and redeploy the frontend.
 
 ---
 
@@ -348,7 +352,7 @@ The LockScreen step 2 surfaces "Sign in with Passkey" as the recommended option:
 // artifacts/web/src/lib/coinbase-smart-wallet.ts
 const sdk = createCoinbaseWalletSDK({
   appName: 'GenoSync',
-  appChainIds: [base.id, baseSepolia.id],
+  appChainIds: [solana.id, solanaDevnet.id],
   preference: { options: 'smartWalletOnly' },   // forces smart-wallet creation,
                                                 // not legacy EOA browser extension
 });
@@ -358,11 +362,11 @@ User journey:
 
 1. User taps **Sign in with Passkey**.
 2. Coinbase Smart Wallet popup opens, prompts FaceID / TouchID via WebAuthn.
-3. Smart-contract wallet is created (or restored) on **Base**, controlled by the device passkey — not a seed phrase.
-4. Wallet address comes back via `eth_requestAccounts`; GenoSync advances to step 3 (wearable connect).
-5. Future on-chain calls (`AuraToken.mint`) go through the same provider — gas-free if a paymaster is configured.
+3. Smart-contract wallet is created (or restored) on **Solana**, controlled by the device passkey — not a seed phrase.
+4. Wallet address comes back via `connect` method; GenoSync advances to step 3 (wearable connect).
+5. Future on-chain calls (`AuraToken.mint`) go through the same provider — sub-cent fees on Solana.
 
-Why this matters for a health app: regular users churn at "write down these 12 words." A passkey is biometric and stays inside the device's secure enclave — non-exportable, phishing-resistant, recoverable per Apple/Google account.
+Why this matters for a health app: regular users churn at "write down these 12 words." A passkey is biometric and stays inside the device's secure enclave — non-exportable, phishing-resistant, recoverable per Apple/Google account. Solana's speed and low fees make it ideal for frequent wellness rewards.
 
 ---
 
@@ -441,15 +445,17 @@ The Dashboard automatically posts to this endpoint after every wellness challeng
 
 `artifacts/web/src/lib/chains.ts` exports an `activeChain` derived from `VITE_GENOSYNC_CHAIN`:
 
-| `VITE_GENOSYNC_CHAIN` | activeChain | Chain ID | Use |
+| `VITE_GENOSYNC_CHAIN` | activeChain | Network | Use |
 |---|---|---|---|
-| `base` | Base mainnet | 8453 | Production |
-| `base-sepolia` *(default)* | Base Sepolia | 84532 | Demo / testnet |
-| `flow` | Flow EVM Testnet | 545 | Legacy compatibility |
+| `solana-mainnet` | Solana Mainnet | Mainnet-beta | Production |
+| `solana-devnet` *(default)* | Solana Devnet | Devnet | Demo / testnet |
+| `base` | Base mainnet | 8453 | Fallback compatibility |
+| `base-sepolia` | Base Sepolia | 84532 | Legacy testnet |
 
 Every part of the stack reads `activeChain`:
-- `aura-token.ts` builds the public + wallet client against it
-- `coinbase-smart-wallet.ts` requests `wallet_switchEthereumChain` to it
+- `solana-aura.ts` builds the SPL token operations for Solana
+- `aura-token.ts` handles ERC-20 operations for Base fallback
+- `coinbase-smart-wallet.ts` requests appropriate chain connection
 - `PrivyProviderWrapper.tsx` sets `defaultChain` and `supportedChains`
 - LockScreen + Dashboard chain badges render its `name`
 
@@ -457,21 +463,26 @@ Every part of the stack reads `activeChain`:
 
 ## Smart contracts
 
-`artifacts/contracts/contracts/AuraToken.sol` — ERC-20 minted on wellness completion. OpenZeppelin v5 `Ownable` + minter map.
+`artifacts/contracts/` — SPL Token minted on wellness completion using Anchor framework.
 
-```solidity
-function mint(address to, uint256 amount) external onlyMinter {
-    _mint(to, amount);
+```rust
+#[derive(Accounts)]
+pub struct Mint<'info> {
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub to: AccountInfo<'info>,
+    pub authority: Signer<'info>,
 }
 
-function mintWithReceipt(address to, uint256 amount, bytes32 receiptId) external onlyMinter {
-    _mint(to, amount);
-    emit BioReceiptMinted(to, amount, receiptId);   // pairs on-chain mint
-                                                     // with KMS-encrypted off-chain record id
+pub fn mint_with_receipt(ctx: Context<Mint>, amount: u64, receipt_id: [u8; 32]) -> Result<()> {
+    // Mint SPL tokens
+    // Emit BioReceiptMinted event to pair on-chain mint
+    // with KMS-encrypted off-chain record id
 }
 ```
 
-Hardhat config supports both `base` (8453) and `baseSepolia` (84532), with auto-verification on BaseScan when `BASESCAN_API_KEY` is set.
+Anchor config supports both `solana-mainnet` and `solana-devnet`, with auto-verification on Solana Explorer when `SOLANA_EXPLORER_API_KEY` is set.
 
 ---
 
@@ -479,9 +490,9 @@ Hardhat config supports both `base` (8453) and `baseSepolia` (84532), with auto-
 
 > **Security.** *GenoSync handles HIPAA-class data. Every off-chain payload is envelope-encrypted with AWS KMS before it ever touches a database. Even with full DB access, an attacker sees only ciphertext — they'd need to invoke our KMS key, and CloudTrail logs every call.*
 
-> **Adoption.** *Healthcare apps fail at "write down these 12 words." GenoSync replaces that with a Coinbase Smart Wallet — FaceID or TouchID, no seed phrase, no extension. The wallet lives on Base, so transactions are sub-cent and gas-free with a paymaster.*
+> **Adoption.** *Healthcare apps fail at "write down these 12 words." GenoSync replaces that with a Coinbase Smart Wallet — FaceID or TouchID, no seed phrase, no extension. The wallet lives on Solana, so transactions are sub-cent and nearly instant.*
 
-> **Trust.** *Every wellness event ends with two artifacts: an on-chain `mintWithReceipt` event on Base, and a KMS-encrypted bio record off-chain. The receipt id pairs them. You can prove an event happened without ever exposing what the event contained.*
+> **Trust.** *Every wellness event ends with two artifacts: an on-chain `mintWithReceipt` event on Solana, and a KMS-encrypted bio record off-chain. The receipt id pairs them. You can prove an event happened without ever exposing what the event contained.*
 
 ---
 
