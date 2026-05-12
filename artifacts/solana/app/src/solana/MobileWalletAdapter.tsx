@@ -75,13 +75,14 @@ export const MobileWalletAdapterProvider: React.FC<{ children: React.ReactNode }
     try {
       const authResult = await transact(async (wallet: Web3MobileWallet) => {
         // Authorize the app
+        const appIdentity = {
+          name: 'GenoSync',
+          uri: 'https://genosync.app',
+          icon: '/icon.png',
+        };
         const authorizationResult = await wallet.authorize({
           cluster: 'mainnet-beta',
-          identity: {
-            name: 'GenoSync',
-            uri: 'https://genosync.app',
-            iconRelativeUri: '/icon.png',
-          },
+          identity: appIdentity,
         });
 
         return authorizationResult;
@@ -90,7 +91,7 @@ export const MobileWalletAdapterProvider: React.FC<{ children: React.ReactNode }
       // Convert addresses to PublicKeys
       const accounts = authResult.accounts.map((acc) => ({
         address: acc.address,
-        publicKey: new PublicKey(acc.publicKey),
+        publicKey: new PublicKey(acc.address),
       }));
 
       const authorization: Authorization = {

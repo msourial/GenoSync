@@ -38,7 +38,7 @@ export const SolCard: React.FC<SolCardProps> = ({
     >
       {variant === 'gradient' ? (
         <LinearGradient
-          colors={Colors.gradients.card}
+          colors={[...Colors.gradients.card]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradient}
