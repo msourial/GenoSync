@@ -338,11 +338,7 @@ GenoSync/
     db/                   Drizzle ORM schema + connection
 ```
 
----
 
-## Hackathon
-
-**PL Genesis: Frontiers of Collaboration** -- March 2026
 
 - **Track**: Fresh Code
 - **Frontiers**: Web3 & Digital Human Rights, AI/AGI, Neurotech
