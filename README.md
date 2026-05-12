@@ -10,7 +10,7 @@ You can be productive AND healthy — they fuel each other. GenoSync is the coac
 
 ---
 
-## Bounty Architecture Matrix
+##  Architecture Matrix
 
 | Bounty / Track | Integration | Key File |
 |---|---|---|
