@@ -1,0 +1,16 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+governance = "GOV1111111111111111111111111111111111111111"
+
+[programs.devnet]
+governance = "GOV1111111111111111111111111111111111111111"
+
+[programs.mainnet]
+governance = "GOV1111111111111111111111111111111111111111"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"

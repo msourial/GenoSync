@@ -1,0 +1,22 @@
+[package]
+name = "cnft"
+version = "0.1.0"
+description = "GenoSync Compressed NFT (cNFT) Program for Wellness Achievements"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "cnft"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.28.0"
+anchor-spl = { version = "0.28.0", features = ["metadata"] }
+solana-program = "1.16.0"
+metaplex-token-metadata = { version = "0.0.1", git = "https://github.com/metaplex-foundation/metaplex-program-library", rev = "main" }
