@@ -1,6 +1,4 @@
 import type { VisionMetrics } from '@/hooks/use-camera';
-import { createWalletClient, custom, type EIP1193Provider } from 'viem';
-import { flowEvmTestnet } from '@/lib/chains';
 
 export interface SessionStats {
   durationSeconds: number;
@@ -36,7 +34,6 @@ export interface WorkReceiptPayload {
   erc8004: ERC8004Payload;
   companionSignature: string;
   agent_signature: string;
-  walletSignature?: string;
   receiptCid?: string;
   pieceCid?: string;
 }
@@ -187,7 +184,6 @@ export async function signWorkReceipt(
   prevStrain = 0,
   vision?: VisionMetrics,
   receiptType: 'sustainable-flow-session' | 'aura-insight' | 'wellness' | 'meditation' = 'sustainable-flow-session',
-  walletProvider?: EIP1193Provider
 ): Promise<WorkReceiptPayload> {
   const timestamp = new Date().toISOString();
 
@@ -209,26 +205,6 @@ export async function signWorkReceipt(
   const payload = JSON.stringify({ nullifierHash, receiptType, erc8004, timestamp });
   const companionSignature = await hmacSign(payload);
 
-  // If a wallet provider is available, sign the receipt payload on-chain via the user's embedded wallet
-  let walletSignature: string | undefined;
-  if (walletProvider) {
-    try {
-      const client = createWalletClient({
-        chain: flowEvmTestnet,
-        transport: custom(walletProvider),
-      });
-      const [account] = await client.getAddresses();
-      if (account) {
-        walletSignature = await client.signMessage({
-          account,
-          message: payload,
-        });
-      }
-    } catch (err) {
-      console.warn('[GenoSync] Wallet signing failed, falling back to HMAC only:', err);
-    }
-  }
-
   console.log(`🤖 AURA Agent signing ERC-8004 receipt: type=${receiptType}`);
   console.log(`📊 Focus Fidelity Score: ${focusFidelityScore}/100`);
   console.log(`🔏 Signature: ${companionSignature.slice(0, 16)}...`);
@@ -242,7 +218,6 @@ export async function signWorkReceipt(
     erc8004,
     companionSignature,
     agent_signature: companionSignature,  // ERC-8004 naming for judges
-    walletSignature,
   };
 }
 
@@ -261,7 +236,6 @@ export interface MeditationReceiptData {
 export async function signMeditationReceipt(
   nullifierHash: string,
   meditation: MeditationReceiptData,
-  walletProvider?: EIP1193Provider
 ): Promise<WorkReceiptPayload> {
   // Create session stats from meditation data
   const stats: SessionStats = {
@@ -279,7 +253,6 @@ export async function signMeditationReceipt(
     0, // no prev strain
     undefined, // no vision metrics needed
     'meditation',
-    walletProvider
   );
 
   // Add meditation-specific data to the receipt

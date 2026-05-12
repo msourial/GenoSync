@@ -45,11 +45,9 @@ import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, signMeditationReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@genosync/api-client-react';
 import type { WearableSource } from '@/pages/LockScreen';
-import { usePrivySafe } from '@/hooks/use-privy-safe';
-import { getAuraBalance, mintAuraTokens } from '@/lib/aura-token';
-import { activeChain } from '@/lib/chains';
-import { isPaymasterEnabled } from '@/lib/coinbase-smart-wallet';
-import IdentityCard from '@/components/IdentityCard';
+import { mintSolanaAura, solanaCluster, SOLANA_AURA_MINT_CONFIGURED } from '@/lib/solana-aura';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 
 interface DashboardProps {
   nullifierHash: string;
@@ -98,7 +96,7 @@ function AnimatedNumber({ value, className }: { value: number; className?: strin
 }
 
 export default function Dashboard({ nullifierHash, bioSourceConnected, wearableSource, walletAddress, onLogout }: DashboardProps) {
-  const privy = usePrivySafe();
+  const solanaWallet = useWallet();
   const { hrv, strain } = useMockBioData();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const apm = useAPM(isSessionActive);
@@ -436,7 +434,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     setXpToast({ xp: xpAwarded, type: challenge.type, method: challenge.verificationMethod });
     xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
 
-    // Encrypt the bio receipt off-chain via AWS KMS before any on-chain action
+    // Encrypt the bio receipt off-chain before the on-chain mint
     if (walletAddress) {
       try {
         await fetch(`${apiBase}/api/bio/encrypt`, {
@@ -450,38 +448,29 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
               verificationMethod: challenge.verificationMethod,
               xpAwarded,
               completedAt: new Date().toISOString(),
-              chain: activeChain.name,
+              chain: `solana-${solanaCluster}`,
             },
           }),
         });
       } catch (err) {
-        console.warn('[KMS] off-chain encryption failed (non-fatal):', err);
+        console.warn('[GenoSync] off-chain encryption failed (non-fatal):', err);
       }
     }
 
-    // Attempt to mint AURA tokens on the active chain (Base / Base Sepolia)
-    const cbwKind = localStorage.getItem('genosync_wallet_kind') === 'coinbase-smart-wallet';
-    let provider: unknown = null;
-    if (walletAddress && cbwKind) {
+    // Mint AURA as an SPL token on Solana
+    if (walletAddress) {
       try {
-        const { getCoinbaseSmartWalletProvider } = await import('@/lib/coinbase-smart-wallet');
-        provider = getCoinbaseSmartWalletProvider();
-      } catch (err) {
-        console.warn('[Coinbase Smart Wallet] provider unavailable:', err);
-      }
-    } else if (walletAddress && privy.privyAvailable) {
-      provider = await privy.getProvider?.();
-    }
-
-    if (walletAddress && provider) {
-      try {
-        const result = await mintAuraTokens(provider as never, walletAddress as `0x${string}`, xpAwarded);
-        if (result.hash) setLastMintHash(result.hash);
-        if (result.sponsored) {
-          console.log('[AURA Token] Mint gas-sponsored via Coinbase Paymaster');
+        const userPk = new PublicKey(walletAddress);
+        const result = await mintSolanaAura(userPk, xpAwarded);
+        if (result.signature) setLastMintHash(result.signature);
+        setAuraBalance((prev) => String(Number(prev) + xpAwarded));
+        if (result.mocked) {
+          console.log(`[Solana AURA] Demo mint (no on-chain SPL configured): +${xpAwarded} AURA`);
+        } else {
+          console.log(`[Solana AURA] Mint queued on ${result.cluster}: +${result.amount} AURA`);
         }
       } catch (err) {
-        console.warn('[AURA Token] Mint attempt failed:', err);
+        console.warn('[Solana AURA] Mint attempt failed:', err);
       }
     }
 
@@ -500,7 +489,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.4);
     } catch { /* audio not available */ }
-  }, [signWellnessReceipt, walletAddress, privy]);
+  }, [signWellnessReceipt, walletAddress]);
 
   const wellnessCoach = useWellnessCoach({
     isSessionActive,
@@ -519,11 +508,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     }
   }, [wellnessCoach.activeChallenge]);
 
-  // Fetch AURA token balance
-  useEffect(() => {
-    if (!walletAddress) return;
-    getAuraBalance(walletAddress as `0x${string}`).then(setAuraBalance).catch(() => {});
-  }, [walletAddress, wellnessCoach.totalXP]);
+  // AURA balance is incremented locally on each successful mint (see handleWellnessComplete).
+  // Once a real SPL mint authority is configured, this can be replaced with a getTokenAccountBalance call.
 
   const handleBreathingComplete = useCallback((xp: number, before: { hrv: number; blinkRate: number; headStability: number }, after: { hrv: number; blinkRate: number; headStability: number }) => {
     // Complete the breath challenge if active
@@ -1201,52 +1187,34 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                 <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
               </motion.div>
               {walletAddress && (
-                <div className="flex items-center gap-1.5 px-3 py-1 border border-blue-400/30 bg-blue-500/8 rounded-full w-fit">
-                  <span className="font-pixel text-[7px] text-blue-300 tracking-widest">{activeChain.name.toUpperCase()}</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 border border-fuchsia-400/30 bg-fuchsia-500/8 rounded-full w-fit">
+                  <span className="font-pixel text-[7px] text-fuchsia-300 tracking-widest">SOLANA {solanaCluster.toUpperCase()}</span>
                   <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                  <span className="font-pixel text-[7px] text-blue-400/80 tracking-wider">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  <span className="font-pixel text-[7px] text-fuchsia-400/80 tracking-wider">
+                    {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
                   </span>
                 </div>
               )}
               <div
-                className="flex items-center gap-1.5 px-3 py-1 border border-emerald-400/30 bg-emerald-500/8 rounded-full w-fit"
-                title="Off-chain bio data is envelope-encrypted via AWS KMS before storage"
-              >
-                <span className="font-pixel text-[7px] text-emerald-300 tracking-widest">AWS KMS</span>
-                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                <span className="font-pixel text-[7px] text-emerald-400/80 tracking-wider">ENCRYPTED</span>
-              </div>
-              {isPaymasterEnabled() && (
-                <div
-                  className="flex items-center gap-1.5 px-3 py-1 border border-yellow-400/30 bg-yellow-500/8 rounded-full w-fit"
-                  title="Coinbase Paymaster sponsors gas — users mint AURA without paying"
-                >
-                  <span className="font-pixel text-[7px] text-yellow-300 tracking-widest">PAYMASTER</span>
-                  <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                  <span className="font-pixel text-[7px] text-yellow-400/80 tracking-wider">GAS SPONSORED</span>
-                </div>
-              )}
-              <div
-                className="flex items-center gap-1.5 px-3 py-1 border border-amber-300/30 bg-amber-300/8 rounded-full w-fit"
-                title="Wellness coach powered by Claude on AWS Bedrock"
-              >
-                <span className="font-pixel text-[7px] text-amber-200 tracking-widest">BEDROCK</span>
-                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                <span className="font-pixel text-[7px] text-amber-300/80 tracking-wider">CLAUDE COACH</span>
-              </div>
-              <div
                 className="flex items-center gap-1.5 px-3 py-1 border border-fuchsia-400/30 bg-fuchsia-500/8 rounded-full w-fit"
-                title="Cross-chain AURA — also mintable as SPL on Solana"
+                title={SOLANA_AURA_MINT_CONFIGURED ? 'Wellness XP minted as SPL AURA on Solana' : 'Demo mint — configure VITE_SOLANA_AURA_MINT for real on-chain mints'}
               >
-                <span className="font-pixel text-[7px] text-fuchsia-300 tracking-widest">SOLANA</span>
+                <span className="font-pixel text-[7px] text-fuchsia-300 tracking-widest">SPL AURA</span>
                 <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                <span className="font-pixel text-[7px] text-fuchsia-400/80 tracking-wider">SPL AURA</span>
+                <span className="font-pixel text-[7px] text-fuchsia-400/80 tracking-wider">
+                  {SOLANA_AURA_MINT_CONFIGURED ? 'ON-CHAIN' : 'DEMO'}
+                </span>
               </div>
             </div>
-            {walletAddress && (
-              <div className="mt-3 max-w-md">
-                <IdentityCard walletAddress={walletAddress} />
+            {walletAddress && solanaWallet.publicKey && (
+              <div className="mt-3 max-w-md rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-500/10 to-purple-500/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-pixel text-[7px] text-fuchsia-300/70 tracking-widest">SOLANA IDENTITY</span>
+                  <span className="font-pixel text-[7px] text-muted-foreground/40">· {solanaCluster.toUpperCase()}</span>
+                </div>
+                <div className="font-mono text-[11px] text-fuchsia-200/90 break-all">
+                  {solanaWallet.publicKey.toBase58()}
+                </div>
               </div>
             )}
             {/* Wellness XP progress bar — always visible in header */}

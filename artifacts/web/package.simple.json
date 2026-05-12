@@ -76,18 +76,14 @@
     "zod": "^3.25.76"
   },
   "dependencies": {
-    "@coinbase/onchainkit": "^0.38.0",
-    "@coinbase/wallet-sdk": "^4.3.0",
     "buffer": "^6.0.3",
     "@mediapipe/tasks-vision": "^0.10.34",
-    "@privy-io/react-auth": "^3.18.0",
     "@solana/spl-token": "^0.4.9",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-phantom": "^0.9.24",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
     "@solana/web3.js": "^1.95.4",
-    "@worldcoin/idkit": "^4.0.11",
-    "viem": "^2.47.6"
+    "@worldcoin/idkit": "^4.0.11"
   }
 }

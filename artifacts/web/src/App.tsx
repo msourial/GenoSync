@@ -8,12 +8,8 @@ import LockScreen from "@/pages/LockScreen";
 import type { WearableSource, VerifyPayload } from "@/pages/LockScreen";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
-import PrivyProviderWrapper from "@/providers/PrivyProviderWrapper";
-import OnchainKitProviderWrapper from "@/providers/OnchainKitProviderWrapper";
 import SolanaProviderWrapper from "@/providers/SolanaProviderWrapper";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { usePrivySafe } from "@/hooks/use-privy-safe";
-import "@coinbase/onchainkit/styles.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +22,6 @@ const queryClient = new QueryClient({
 
 function AppRouter() {
   const [location, setLocation] = useLocation();
-  const privy = usePrivySafe();
 
   // 'genosync_nullifier' is a persistent identity (World ID public key — never deleted).
   // 'genosync_session' is cleared on logout so a page refresh after locking requires re-verification.
@@ -61,10 +56,6 @@ function AppRouter() {
   };
 
   const handleLogout = async () => {
-    // Logout from Privy wallet if connected
-    if (privy.privyAvailable && privy.authenticated) {
-      try { await privy.logout(); } catch { /* ignore */ }
-    }
     setNullifierHash(null);
     setBioSourceConnected(false);
     setWearableSource('demo');
@@ -111,18 +102,14 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <OnchainKitProviderWrapper>
-          <SolanaProviderWrapper>
-            <PrivyProviderWrapper>
-              <TooltipProvider>
-                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-                  <AppRouter />
-                </WouterRouter>
-                <Toaster />
-              </TooltipProvider>
-            </PrivyProviderWrapper>
-          </SolanaProviderWrapper>
-        </OnchainKitProviderWrapper>
+        <SolanaProviderWrapper>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppRouter />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </SolanaProviderWrapper>
       </QueryClientProvider>
     </ErrorBoundary>
   );

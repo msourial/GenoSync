@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IDKitRequestWidget, deviceLegacy } from '@worldcoin/idkit';
 import type { IDKitResult } from '@worldcoin/idkit';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { PixelButton, NeonText, PixelPanel } from '@/components/PixelUI';
 import { Lock, ShieldCheck, Cpu, Activity, WifiOff, AlertTriangle, Heart, Dumbbell, Wallet, CheckCircle2, Eye, EyeOff, ArrowLeft, Mail, Fingerprint, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePrivySafe } from '@/hooks/use-privy-safe';
-import { useCoinbaseSmartWallet } from '@/hooks/use-coinbase-smart-wallet';
-import { activeChain } from '@/lib/chains';
+import { SOLANA_CLUSTER } from '@/providers/SolanaProviderWrapper';
 
 export type WearableSource = 'fitbit' | 'whoop' | 'demo';
 
@@ -26,13 +26,13 @@ type Phase =
   | 'idle'           // Step 1: World ID login
   | 'zk-verifying'   // Step 1: ZK animation
   | 'zk-done'        // Step 1 complete → user clicks to proceed
-  | 'wallet-connect'  // Step 2: Privy wallet creation/linking
-  | 'wallet-done'     // Step 2 complete → show wearable picker
-  | 'wearable-pick'   // Step 3: Choose device
-  | 'wearable-login'  // Step 3: Login form for selected device
-  | 'bio-connecting'  // Step 3: Device connection animation
-  | 'bio-done'        // Step 3 complete
-  | 'entering';       // Transitioning to dashboard
+  | 'wallet-connect' // Step 2: Solana wallet connect
+  | 'wallet-done'    // Step 2 complete → show wearable picker
+  | 'wearable-pick'  // Step 3: Choose device
+  | 'wearable-login' // Step 3: Login form for selected device
+  | 'bio-connecting' // Step 3: Device connection animation
+  | 'bio-done'       // Step 3 complete
+  | 'entering';      // Transitioning to dashboard
 
 const ZK_STEPS = [
   'INITIALIZING ZK CIRCUIT...',
@@ -41,8 +41,6 @@ const ZK_STEPS = [
   'VERIFYING NULLIFIER HASH...',
   'IDENTITY CONFIRMED',
 ];
-
-// No fake wallet steps — Privy handles the real flow
 
 const WHOOP_STEPS = [
   'HANDSHAKE WITH WHOOP API V2...',
@@ -96,12 +94,8 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Privy
-  const privy = usePrivySafe();
-  const privyAvailable = privy.privyAvailable;
-
-  // Coinbase Smart Wallet (passkey-based — no seed phrase)
-  const cbw = useCoinbaseSmartWallet();
+  // Solana wallet adapter (Phantom)
+  const solanaWallet = useWallet();
 
   // Load World ID config
   useEffect(() => {
@@ -210,45 +204,21 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
   // ─── Step 1 done → user clicks to proceed ──────────────────────────────
 
   const handleProceedToWallet = () => {
-    if (privyAvailable) {
-      setPhase('wallet-connect');
-    } else {
-      setPhase('wearable-pick');
-    }
+    setPhase('wallet-connect');
   };
 
-  // ─── Step 2: Privy Wallet (real auth) ───────────────────────────────────
+  // ─── Step 2: Solana wallet (Phantom) ────────────────────────────────────
 
-  // When Privy authenticates and wallet is ready, show wallet-done
+  // When Solana wallet connects, advance to wallet-done
   useEffect(() => {
     if (phase !== 'wallet-connect') return;
-    if (!privy.authenticated || !privy.user?.wallet?.address) return;
-
-    const addr = privy.user.wallet.address;
+    if (!solanaWallet.connected || !solanaWallet.publicKey) return;
+    const addr = solanaWallet.publicKey.toBase58();
     setWalletAddress(addr);
     localStorage.setItem('genosync_wallet_address', addr);
+    localStorage.setItem('genosync_wallet_kind', 'solana');
     setPhase('wallet-done');
-  }, [phase, privy.authenticated, privy.user?.wallet?.address]);
-
-  // When Coinbase Smart Wallet connects (passkey/FaceID), advance to wallet-done
-  useEffect(() => {
-    if (phase !== 'wallet-connect') return;
-    if (!cbw.address) return;
-    setWalletAddress(cbw.address);
-    localStorage.setItem('genosync_wallet_address', cbw.address);
-    localStorage.setItem('genosync_wallet_kind', 'coinbase-smart-wallet');
-    setPhase('wallet-done');
-  }, [phase, cbw.address]);
-
-  const handleCoinbaseSmartWallet = async () => {
-    const addr = await cbw.connect();
-    if (addr) {
-      setWalletAddress(addr);
-      localStorage.setItem('genosync_wallet_address', addr);
-      localStorage.setItem('genosync_wallet_kind', 'coinbase-smart-wallet');
-      setPhase('wallet-done');
-    }
-  };
+  }, [phase, solanaWallet.connected, solanaWallet.publicKey]);
 
   // wallet-done → user clicks to proceed to wearable
   const handleProceedToWearable = () => {
@@ -439,24 +409,14 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               {worldIdConfig?.configured ? 'ZK PROOF' : 'ZK DEMO'}
             </div>
             <span className="text-muted-foreground/20">|</span>
-            <div className="flex items-center gap-1.5 text-blue-400/80">
-              <span className="w-1.5 h-1.5 rounded-full inline-block bg-blue-400" />
-              {activeChain.name.toUpperCase()}
+            <div className="flex items-center gap-1.5 text-fuchsia-400/80">
+              <span className="w-1.5 h-1.5 rounded-full inline-block bg-fuchsia-400" />
+              SOLANA {SOLANA_CLUSTER.toUpperCase()}
             </div>
             <span className="text-muted-foreground/20">|</span>
             <div className="flex items-center gap-1.5 text-emerald-400/80">
               <span className="w-1.5 h-1.5 rounded-full inline-block bg-emerald-400" />
-              AWS KMS
-            </div>
-            <span className="text-muted-foreground/20">|</span>
-            <div className="flex items-center gap-1.5 text-fuchsia-400/80">
-              <span className="w-1.5 h-1.5 rounded-full inline-block bg-fuchsia-400" />
-              SOLANA
-            </div>
-            <span className="text-muted-foreground/20">|</span>
-            <div className="flex items-center gap-1.5 text-amber-300/80">
-              <span className="w-1.5 h-1.5 rounded-full inline-block bg-amber-300" />
-              BEDROCK
+              ZK · WORLD ID
             </div>
           </div>
 
@@ -548,12 +508,12 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                   className="w-full flex items-center justify-center gap-3 mt-2"
                 >
                   <Wallet className="w-4 h-4" />
-                  {privyAvailable ? 'Next — Connect Wallet' : 'Next — Connect Wearable'}
+                  Next — Connect Wallet
                 </PixelButton>
               </motion.div>
             )}
 
-            {/* ── Step 2: Wallet Connection ── */}
+            {/* ── Step 2: Solana Wallet Connection ── */}
             {phase === 'wallet-connect' && (
               <motion.div
                 key="wallet-connect"
@@ -563,19 +523,18 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 className="flex flex-col gap-4 w-full"
               >
                 <div className="flex flex-col items-center gap-4 w-full">
-                  {/* Coinbase Smart Wallet — passkey first, no seed phrases */}
-                  <div className="w-full border-2 border-blue-500/40 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/5 p-5 relative overflow-hidden">
-                    <div className="absolute top-2 right-3 px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/40 font-pixel text-[7px] tracking-wider text-blue-300">
-                      RECOMMENDED
+                  <div className="w-full border-2 border-fuchsia-500/40 rounded-xl bg-gradient-to-br from-fuchsia-500/10 to-purple-500/5 p-5 relative overflow-hidden">
+                    <div className="absolute top-2 right-3 px-2 py-0.5 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/40 font-pixel text-[7px] tracking-wider text-fuchsia-300">
+                      SOLANA
                     </div>
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                        <Fingerprint className="w-5 h-5 text-white" />
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow-lg shadow-fuchsia-500/30">
+                        <Wallet className="w-5 h-5 text-white" />
                       </div>
                       <div>
-                        <p className="font-terminal text-sm font-semibold text-blue-200">Coinbase Smart Wallet</p>
+                        <p className="font-terminal text-sm font-semibold text-fuchsia-200">Phantom Wallet</p>
                         <p className="font-terminal text-[11px] text-muted-foreground/60">
-                          Passkey login · {activeChain.name}
+                          Solana · {SOLANA_CLUSTER}
                         </p>
                       </div>
                     </div>
@@ -583,75 +542,26 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                        <span className="font-terminal text-sm text-blue-300/80">FaceID / TouchID — no seed phrase</span>
+                        <span className="font-terminal text-sm text-fuchsia-300/80">Receive AURA as SPL tokens</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                        <span className="font-terminal text-sm text-blue-300/80">Smart contract wallet on Base</span>
+                        <span className="font-terminal text-sm text-fuchsia-300/80">Sub-cent transaction fees on Solana</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                        <span className="font-terminal text-sm text-blue-300/80">Sign GenoSync receipts gas-free</span>
+                        <span className="font-terminal text-sm text-fuchsia-300/80">Sign GenoSync receipts with Ed25519</span>
                       </div>
                     </div>
 
-                    <PixelButton
-                      onClick={handleCoinbaseSmartWallet}
-                      disabled={cbw.connecting}
-                      className="w-full flex items-center justify-center gap-3 disabled:opacity-60"
-                    >
-                      {cbw.connecting ? (
-                        <>
-                          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}>
-                            <Cpu className="w-4 h-4" />
-                          </motion.div>
-                          Authenticating with passkey...
-                        </>
-                      ) : (
-                        <>
-                          <Fingerprint className="w-4 h-4" />
-                          Sign in with Passkey
-                        </>
-                      )}
-                    </PixelButton>
-                    {cbw.error && (
-                      <p className="font-terminal text-[11px] text-red-400 mt-2">{cbw.error}</p>
-                    )}
+                    <div className="w-full flex justify-center">
+                      <WalletMultiButton />
+                    </div>
                   </div>
-
-                  {privyAvailable && (
-                    <>
-                      <div className="relative w-full">
-                        <div className="w-full h-px bg-secondary/30" />
-                        <span className="absolute inset-x-0 -top-2.5 flex justify-center">
-                          <span className="px-2 bg-card font-terminal text-xs text-muted-foreground/40">or</span>
-                        </span>
-                      </div>
-
-                      <div className="w-full border-2 border-violet-500/20 rounded-xl bg-violet-500/5 p-4">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
-                            <KeyRound className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-terminal text-sm font-semibold text-violet-200">Privy Embedded Wallet</p>
-                            <p className="font-terminal text-[10px] text-muted-foreground/60">Email · {activeChain.name}</p>
-                          </div>
-                        </div>
-                        <PixelButton
-                          onClick={() => privy.login()}
-                          className="w-full flex items-center justify-center gap-3"
-                        >
-                          <Wallet className="w-4 h-4" />
-                          Connect with Email
-                        </PixelButton>
-                      </div>
-                    </>
-                  )}
 
                   <button
                     onClick={handleSkipWallet}
-                    className="font-terminal text-sm text-muted-foreground/40 hover:text-violet-300/60 transition-colors cursor-pointer underline underline-offset-4"
+                    className="font-terminal text-sm text-muted-foreground/40 hover:text-fuchsia-300/60 transition-colors cursor-pointer underline underline-offset-4"
                   >
                     Skip wallet for now
                   </button>
@@ -679,7 +589,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                   </span>
                 </div>
                 <p className="font-terminal text-[11px] text-muted-foreground/40">
-                  {activeChain.name} · Chain {activeChain.id} · Ready to sign receipts
+                  Solana · {SOLANA_CLUSTER} · Ready to sign receipts
                 </p>
                 <PixelButton
                   onClick={handleProceedToWearable}
