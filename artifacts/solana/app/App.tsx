@@ -1,3 +1,11 @@
+// Solana RN polyfills — must come before any @solana/web3.js import.
+// `get-random-values` shims crypto.getRandomValues (web3.js needs it for keypair gen);
+// `url-polyfill` shims URL/URLSearchParams (web3.js parses RPC URLs at module load).
+import 'react-native-get-random-values';
+import 'react-native-url-polyfill/auto';
+import { Buffer } from 'buffer';
+(globalThis as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
+
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';

@@ -11,6 +11,7 @@ import {
   Web3MobileWallet,
 } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
 import { PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { Buffer } from 'buffer';
 import bs58 from 'bs58';
 
 /**
@@ -88,11 +89,17 @@ export const MobileWalletAdapterProvider: React.FC<{ children: React.ReactNode }
         return authorizationResult;
       });
 
-      // Convert addresses to PublicKeys
-      const accounts = authResult.accounts.map((acc) => ({
-        address: acc.address,
-        publicKey: new PublicKey(acc.address),
-      }));
+      // MWA v2 returns acc.address as a base64-encoded pubkey string (not base58).
+      // Decode base64 → 32-byte pubkey → PublicKey, then re-derive a base58 address
+      // for uniform downstream use.
+      const accounts = authResult.accounts.map((acc) => {
+        const pubkeyBytes = Buffer.from(acc.address, 'base64');
+        const publicKey = new PublicKey(pubkeyBytes);
+        return {
+          address: publicKey.toBase58(),
+          publicKey,
+        };
+      });
 
       const authorization: Authorization = {
         accounts,

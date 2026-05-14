@@ -11,11 +11,13 @@ const SOLANA_CLUSTER =
     | 'devnet'
     | 'testnet';
 
-const SOLANA_RPC_OVERRIDE = import.meta.env.VITE_SOLANA_RPC_URL as string | undefined;
+const SOLANA_RPC_OVERRIDE = (import.meta.env.VITE_SOLANA_RPC_URL as string | undefined)?.trim();
 
 export default function SolanaProviderWrapper({ children }: { children: ReactNode }) {
   const endpoint = useMemo(
-    () => SOLANA_RPC_OVERRIDE ?? clusterApiUrl(SOLANA_CLUSTER),
+    () => (SOLANA_RPC_OVERRIDE && SOLANA_RPC_OVERRIDE.length > 0
+      ? SOLANA_RPC_OVERRIDE
+      : clusterApiUrl(SOLANA_CLUSTER)),
     [],
   );
   const wallets = useMemo(() => [new PhantomWalletAdapter()], []);

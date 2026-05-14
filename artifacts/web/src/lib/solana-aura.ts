@@ -27,7 +27,8 @@ const CLUSTER =
     | 'testnet';
 
 const MINT_ADDRESS_RAW = import.meta.env.VITE_SOLANA_AURA_MINT as string | undefined;
-const RPC_OVERRIDE = import.meta.env.VITE_SOLANA_RPC_URL as string | undefined;
+const RPC_OVERRIDE_RAW = (import.meta.env.VITE_SOLANA_RPC_URL as string | undefined)?.trim();
+const RPC_OVERRIDE = RPC_OVERRIDE_RAW && RPC_OVERRIDE_RAW.length > 0 ? RPC_OVERRIDE_RAW : undefined;
 
 export const solanaCluster = CLUSTER;
 
