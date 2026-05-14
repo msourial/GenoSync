@@ -18,7 +18,7 @@ import { MobileWalletAdapterProvider } from './src/solana/MobileWalletAdapter';
 import { ConnectionProvider } from './src/solana/ConnectionProvider';
 
 // Navigation
-import { BottomTabNavigator } from './src/navigation/BottomTabs';
+import { RootStackNavigator } from './src/navigation/RootStack';
 
 // Screens
 import { LockScreen } from './src/screens/LockScreen';
@@ -37,7 +37,7 @@ const RootNavigator = () => {
       {!isAuthenticated ? (
         <Stack.Screen name="Lock" component={LockScreen} />
       ) : (
-        <Stack.Screen name="Main" component={BottomTabNavigator} />
+        <Stack.Screen name="Main" component={RootStackNavigator} />
       )}
     </Stack.Navigator>
   );

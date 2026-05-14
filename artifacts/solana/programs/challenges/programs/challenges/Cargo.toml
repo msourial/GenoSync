@@ -1,0 +1,20 @@
+[package]
+name = "challenges"
+version = "0.1.0"
+description = "GenoSync user-vs-user wellness challenges"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "challenges"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+
+[dependencies]
+anchor-lang = "0.28.0"
+anchor-spl = "0.28.0"

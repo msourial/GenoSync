@@ -1,331 +1,249 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
+  ActivityIndicator,
   FlatList,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { Colors } from '../theme/colors';
-import { spacing, typography, borderRadius } from '../theme/tokens';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
-interface SessionRecord {
-  id: string;
-  date: string;
-  duration: number;
-  grade: 'S' | 'A' | 'B' | 'C' | 'D';
-  hrv: number;
-  strain: number;
-  auraEarned: number;
-  challenges: string[];
+import { useHistory } from '../hooks/useHistory';
+import type { SessionRecord } from '../types';
+import { Colors } from '../theme/colors';
+import { borderRadius, shadows, spacing, typography } from '../theme/tokens';
+
+function gradeColor(grade: SessionRecord['grade']): string {
+  switch (grade) {
+    case 'S':
+      return '#22C55E';
+    case 'A':
+      return '#06B6D4';
+    case 'B':
+      return '#6366F1';
+    case 'C':
+      return '#F59E0B';
+    default:
+      return '#EF4444';
+  }
 }
 
-const MOCK_HISTORY: SessionRecord[] = [
-  {
-    id: '1',
-    date: '2026-05-09',
-    duration: 1800,
-    grade: 'S',
-    hrv: 72,
-    strain: 15,
-    auraEarned: 150,
-    challenges: ['Posture', 'Hydration', 'Breathing'],
-  },
-  {
-    id: '2',
-    date: '2026-05-08',
-    duration: 1500,
-    grade: 'A',
-    hrv: 65,
-    strain: 22,
-    auraEarned: 100,
-    challenges: ['Stretch', 'Movement'],
-  },
-  {
-    id: '3',
-    date: '2026-05-07',
-    duration: 1200,
-    grade: 'B',
-    hrv: 58,
-    strain: 35,
-    auraEarned: 50,
-    challenges: ['Hydration'],
-  },
-  {
-    id: '4',
-    date: '2026-05-06',
-    duration: 2100,
-    grade: 'S',
-    hrv: 74,
-    strain: 12,
-    auraEarned: 150,
-    challenges: ['Posture', 'Meditation', 'Stretch'],
-  },
-];
+function formatDuration(minutes: number): string {
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hrs === 0) return `${mins}m`;
+  return `${hrs}h ${mins}m`;
+}
 
-export const HistoryScreen: React.FC = () => {
-  const [filter, setFilter] = useState<'all' | 'S' | 'A' | 'B'>('all');
+const History: React.FC = () => {
+  const { records, loading } = useHistory();
 
-  const filtered = filter === 'all'
-    ? MOCK_HISTORY
-    : MOCK_HISTORY.filter((s) => s.grade === filter);
-
-  const totalAura = MOCK_HISTORY.reduce((sum, s) => sum + s.auraEarned, 0);
-  const totalTime = MOCK_HISTORY.reduce((sum, s) => sum + s.duration, 0);
-  const sGrades = MOCK_HISTORY.filter((s) => s.grade === 'S').length;
-
-  const getGradeColor = (grade: string) => {
-    switch (grade) {
-      case 'S': return Colors.grades.S;
-      case 'A': return Colors.grades.A;
-      case 'B': return Colors.grades.B;
-      case 'C': return Colors.grades.C;
-      default: return Colors.grades.D;
+  const totals = useMemo(() => {
+    if (records.length === 0) {
+      return { totalAura: 0, totalDuration: 0, avgHrv: 0 };
     }
-  };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    return `${mins}m`;
-  };
+    const totalAura = records.reduce((sum, rec) => sum + rec.auraEarned, 0);
+    const totalDuration = records.reduce((sum, rec) => sum + rec.duration, 0);
+    const avgHrv = records.reduce((sum, rec) => sum + rec.hrv, 0) / records.length;
 
-  const renderSession = ({ item }: { item: SessionRecord }) => (
-    <View style={styles.sessionCard}>
-      <View style={styles.sessionHeader}>
-        <View style={styles.dateSection}>
-          <Text style={styles.sessionDate}>{item.date}</Text>
-          <Text style={styles.sessionDuration}>{formatDuration(item.duration)}</Text>
-        </View>
-        <View style={[styles.gradeBadge, { backgroundColor: `${getGradeColor(item.grade)}20` }]}>
-          <Text style={[styles.gradeText, { color: getGradeColor(item.grade) }]}>
-            {item.grade}
-          </Text>
-        </View>
-      </View>
+    return { totalAura, totalDuration, avgHrv };
+  }, [records]);
 
-      <View style={styles.biometrics}>
-        <BioStat icon="heart" label="HRV" value={`${item.hrv}ms`} color={Colors.error} />
-        <BioStat icon="flash" label="Strain" value={`${item.strain}%`} color={Colors.warning} />
-        <BioStat icon="logo-solana" label="Earned" value={`${item.auraEarned} AURA`} color={Colors.solana.purple} />
-      </View>
+  const renderRecord = ({ item }: { item: SessionRecord }) => {
+    const tint = gradeColor(item.grade);
 
-      <View style={styles.challenges}>
-        {item.challenges.map((challenge) => (
-          <View key={challenge} style={styles.challengeBadge}>
-            <Text style={styles.challengeText}>{challenge}</Text>
+    return (
+      <View style={styles.recordCard}>
+        <View style={styles.rowTop}>
+          <View>
+            <Text style={styles.date}>{item.date}</Text>
+            <Text style={styles.duration}>{formatDuration(item.duration)} • HRV {item.hrv}</Text>
           </View>
-        ))}
+          <View style={[styles.gradeBadge, { backgroundColor: `${tint}22`, borderColor: tint }]}>
+            <Text style={[styles.gradeText, { color: tint }]}>{item.grade}</Text>
+          </View>
+        </View>
+
+        <View style={styles.metricsRow}>
+          <Text style={styles.metricLabel}>Strain: <Text style={styles.metricValue}>{item.strain}</Text></Text>
+          <Text style={styles.metricLabel}>AURA: <Text style={styles.metricValue}>{item.auraEarned}</Text></Text>
+        </View>
+
+        {item.challenges.length > 0 ? (
+          <View style={styles.challengesRow}>
+            {item.challenges.map((challenge) => (
+              <View key={`${item.id}-${challenge}`} style={styles.challengeBadge}>
+                <Text style={styles.challengeText}>{challenge}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Session History</Text>
+        <Ionicons name="time-outline" size={20} color={Colors.solana.green} />
+      </View>
+
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Total AURA</Text>
+          <Text style={styles.summaryValue}>{totals.totalAura.toFixed(0)}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Duration</Text>
+          <Text style={styles.summaryValue}>{formatDuration(totals.totalDuration)}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Avg HRV</Text>
+          <Text style={styles.summaryValue}>{totals.avgHrv.toFixed(1)}</Text>
+        </View>
+      </View>
+
+      {loading && records.length === 0 ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={Colors.solana.green} />
+        </View>
+      ) : null}
+
+      {!loading && records.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Ionicons name="albums-outline" size={34} color={Colors.textSecondary} />
+          <Text style={styles.emptyTitle}>No session history yet</Text>
+        </View>
+      ) : null}
+
       <FlatList
-        data={filtered}
-        renderItem={renderSession}
+        data={records}
+        renderItem={renderRecord}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <>
-            <View style={styles.header}>
-              <Text style={styles.title}>History</Text>
-              <Text style={styles.subtitle}>Your wellness journey</Text>
-            </View>
-
-            {/* Summary Stats */}
-            <View style={styles.statsRow}>
-              <SummaryCard icon="time" label="Total Time" value={`${Math.floor(totalTime / 3600)}h`} color={Colors.info} />
-              <SummaryCard icon="logo-solana" label="AURA Earned" value={`${totalAura}`} color={Colors.solana.purple} />
-              <SummaryCard icon="trophy" label="S-Grades" value={`${sGrades}`} color={Colors.accent} />
-            </View>
-
-            {/* Filters */}
-            <View style={styles.filterRow}>
-              {(['all', 'S', 'A', 'B'] as const).map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  style={[styles.filterChip, filter === f && styles.filterChipActive]}
-                  onPress={() => setFilter(f)}
-                >
-                  <Text style={[styles.filterChipText, filter === f && styles.filterChipTextActive]}>
-                    {f === 'all' ? 'All' : `Grade ${f}`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        }
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
       />
-    </SafeAreaView>
+    </View>
   );
 };
-
-const SummaryCard: React.FC<{ icon: string; label: string; value: string; color: string }> = ({
-  icon,
-  label,
-  value,
-  color,
-}) => (
-  <View style={[styles.summaryCard, { borderColor: `${color}30` }]}>
-    <Icon name={icon} size={20} color={color} />
-    <Text style={styles.summaryValue}>{value}</Text>
-    <Text style={styles.summaryLabel}>{label}</Text>
-  </View>
-);
-
-const BioStat: React.FC<{ icon: string; label: string; value: string; color: string }> = ({
-  icon,
-  label,
-  value,
-  color,
-}) => (
-  <View style={styles.bioStat}>
-    <Icon name={icon} size={14} color={color} />
-    <Text style={styles.bioStatLabel}>{label}</Text>
-    <Text style={[styles.bioStatValue, { color }]}>{value}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  listContent: {
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.xxxl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   header: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
   },
   title: {
-    ...typography.h2,
     color: Colors.textPrimary,
+    ...typography.h1,
   },
-  subtitle: {
-    ...typography.bodySmall,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  statsRow: {
+  summaryRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
   },
   summaryCard: {
     flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  summaryValue: {
-    ...typography.h4,
-    color: Colors.textPrimary,
-    marginTop: 6,
-    marginBottom: 2,
+    padding: spacing.md,
+    ...shadows.sm,
   },
   summaryLabel: {
-    ...typography.caption,
-    color: Colors.textMuted,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  filterChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: borderRadius.md,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.solana.purple,
-    borderColor: Colors.solana.purple,
-  },
-  filterChipText: {
-    ...typography.caption,
     color: Colors.textSecondary,
-    fontWeight: '500',
+    ...typography.caption,
   },
-  filterChipTextActive: {
-    color: '#fff',
+  summaryValue: {
+    marginTop: spacing.xs,
+    color: Colors.textPrimary,
+    ...typography.body,
+    fontWeight: '700',
   },
-  sessionCard: {
+  listContent: {
+    paddingBottom: spacing.xxxl,
+    gap: spacing.md,
+  },
+  recordCard: {
     backgroundColor: Colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    ...shadows.sm,
   },
-  sessionHeader: {
+  rowTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
-  dateSection: {},
-  sessionDate: {
-    ...typography.body,
+  date: {
     color: Colors.textPrimary,
-    fontWeight: '600',
+    ...typography.h2,
   },
-  sessionDuration: {
+  duration: {
+    color: Colors.textSecondary,
     ...typography.caption,
-    color: Colors.textMuted,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   gradeBadge: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
   },
   gradeText: {
-    ...typography.label,
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '800',
   },
-  biometrics: {
+  metricsRow: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     gap: spacing.lg,
-    marginBottom: spacing.md,
   },
-  bioStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  bioStatLabel: {
+  metricLabel: {
+    color: Colors.textSecondary,
     ...typography.caption,
-    color: Colors.textMuted,
   },
-  bioStatValue: {
-    ...typography.caption,
-    fontWeight: '600',
+  metricValue: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
   },
-  challenges: {
+  challengesRow: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.xs,
   },
   challengeBadge: {
-    backgroundColor: `${Colors.solana.green}15`,
+    backgroundColor: '#1f2937',
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: borderRadius.sm,
   },
   challengeText: {
+    color: Colors.textSecondary,
     ...typography.caption,
-    color: Colors.solana.green,
-    fontWeight: '500',
+  },
+  loaderWrap: {
+    paddingVertical: spacing.lg,
+  },
+  emptyWrap: {
+    marginTop: spacing.xxxl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    color: Colors.textPrimary,
+    ...typography.h2,
   },
 });
+
+export default History;

@@ -1,53 +1,65 @@
-import { useEffect, useState } from 'react';
-import { useMobileWallet } from '../solana/MobileWalletAdapter';
-import { useConnection } from '../solana/ConnectionProvider';
+import { useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getAssociatedTokenAddress } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
-import { getAssociatedTokenAddress, getAccount, Account } from '@solana/spl-token';
 
-// AURA SPL Token mint address (update after deployment)
-const AURA_TOKEN_MINT = new PublicKey('AuraMintAddress111111111111111111111111111111');
+import { useConnection } from '../solana/ConnectionProvider';
+import { useMobileWallet } from '../solana/MobileWalletAdapter';
 
-/**
- * Hook to fetch AURA token balance for the connected wallet
- */
-export function useAuraBalance() {
-  const { walletPublicKey } = useMobileWallet();
-  const { connection } = useConnection();
-  const [balance, setBalance] = useState<number>(0);
-  const [loading, setLoading] = useState(false);
+const getEnv = (key: string): string => {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return env?.[key] ?? '';
+};
 
-  useEffect(() => {
-    if (!walletPublicKey) {
-      setBalance(0);
-      return;
-    }
+export function useAuraBalance(): {
+  balance: number;
+  loading: boolean;
+  refetch: () => void;
+} {
+  const { connection, cluster } = useConnection();
+  const { walletPublicKey, walletAddress } = useMobileWallet();
 
-    const fetchBalance = async () => {
-      setLoading(true);
-      try {
-        const ata = await getAssociatedTokenAddress(AURA_TOKEN_MINT, walletPublicKey);
-        try {
-          const account: Account = await getAccount(connection, ata);
-          // SPL tokens have decimals, assuming 9 for AURA
-          setBalance(Number(account.amount) / 1e9);
-        } catch {
-          // Account doesn't exist - no tokens yet
-          setBalance(0);
-        }
-      } catch (err) {
-        console.error('Failed to fetch AURA balance:', err);
-        setBalance(0);
-      } finally {
-        setLoading(false);
-      }
+  const auraMintAddress = getEnv('EXPO_PUBLIC_AURA_MINT').trim();
+  if (!auraMintAddress) {
+    return {
+      balance: 0,
+      loading: false,
+      refetch: () => {},
     };
+  }
 
-    fetchBalance();
-    
-    // Poll every 15 seconds
-    const interval = setInterval(fetchBalance, 15000);
-    return () => clearInterval(interval);
-  }, [walletPublicKey, connection]);
+  let auraMint: PublicKey | null = null;
+  try {
+    auraMint = new PublicKey(auraMintAddress);
+  } catch {
+    auraMint = null;
+  }
 
-  return { balance, loading };
+  const query = useQuery({
+    queryKey: ['auraBalance', walletAddress, cluster, auraMintAddress],
+    enabled: !!walletPublicKey && !!auraMint,
+    queryFn: async (): Promise<number> => {
+      if (!walletPublicKey || !auraMint) return 0;
+
+      try {
+        const ata = await getAssociatedTokenAddress(auraMint, walletPublicKey);
+        const tokenBalance = await connection.getTokenAccountBalance(ata);
+        const amount = Number(tokenBalance.value.uiAmount ?? 0);
+        return Number.isFinite(amount) ? amount : 0;
+      } catch {
+        return 0;
+      }
+    },
+    staleTime: 15_000,
+  });
+
+  const refetch = useCallback(() => {
+    void query.refetch();
+  }, [query]);
+
+  return {
+    balance: query.data ?? 0,
+    loading: query.isLoading,
+    refetch,
+  };
 }

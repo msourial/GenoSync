@@ -1,515 +1,501 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
+  Alert,
   Animated,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Ionicons';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
+import LinearGradient from 'react-native-linear-gradient';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
 import { useMobileWallet } from '../solana/MobileWalletAdapter';
-import { useStakingStore } from '../stores/stakingStore';
+import { useConnection } from '../solana/ConnectionProvider';
+import { useBiometrics } from '../hooks/useBiometrics';
+import { useAuraBalance } from '../hooks/useAuraBalance';
+import { useStakeInfo } from '../hooks/useStakeInfo';
 import { Colors } from '../theme/colors';
+import { borderRadius, shadows, spacing, typography } from '../theme/tokens';
 
-/**
- * GenoSync Dashboard - Mobile
- * 
- * Features:
- * - Live biometric monitoring
- * - Wellness score display
- * - AURA balance & boost multiplier
- * - Quick actions for staking, NFTs, governance
- */
-
-interface SessionStats {
-  duration: number;
-  apm: number;
-  hrv: number;
-  strain: number;
-  focusScore: number;
-  grade: 'S' | 'A' | 'B' | 'C' | 'D' | null;
-}
-
-const hapticOptions = {
-  enableVibrateFallback: true,
-  ignoreAndroidSystemSettings: false,
-};
-
-export const DashboardScreen: React.FC = () => {
-  const { walletAddress } = useMobileWallet();
-  const { stakeInfo, auraBalance } = useStakingStore();
-  const [isSessionActive, setIsSessionActive] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [sessionStats, setSessionStats] = useState<SessionStats>({
-    duration: 0,
-    apm: 0,
-    hrv: 0,
-    strain: 0,
-    focusScore: 0,
-    grade: null,
-  });
-  const [pulseAnim] = useState(new Animated.Value(1));
-
-  // Pulse animation for active session
-  useEffect(() => {
-    if (isSessionActive) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [isSessionActive]);
-
-  // Simulate session timer
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isSessionActive) {
-      interval = setInterval(() => {
-        setSessionStats((prev) => ({
-          ...prev,
-          duration: prev.duration + 1,
-          // Simulate biometric fluctuations
-          hrv: 45 + Math.random() * 20,
-          strain: Math.min(100, prev.strain + Math.random() * 2),
-        }));
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isSessionActive]);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    ReactNativeHapticFeedback.trigger('impactLight', hapticOptions);
-    // Simulate data fetch
-    setTimeout(() => {
-      setRefreshing(false);
-      ReactNativeHapticFeedback.trigger('notificationSuccess', hapticOptions);
-    }, 2000);
-  }, []);
-
-  const toggleSession = () => {
-    if (isSessionActive) {
-      // End session - calculate grade
-      const grade = calculateGrade(sessionStats);
-      setSessionStats((prev) => ({ ...prev, grade }));
-      ReactNativeHapticFeedback.trigger('notificationWarning', hapticOptions);
-    } else {
-      ReactNativeHapticFeedback.trigger('notificationSuccess', hapticOptions);
-    }
-    setIsSessionActive(!isSessionActive);
-  };
-
-  const calculateGrade = (stats: SessionStats): 'S' | 'A' | 'B' | 'C' | 'D' => {
-    const score = (stats.focusScore * 0.4 + (100 - stats.strain) * 0.3 + stats.hrv * 0.3);
-    if (score >= 90) return 'S';
-    if (score >= 80) return 'A';
-    if (score >= 70) return 'B';
-    if (score >= 60) return 'C';
-    return 'D';
-  };
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getBoostMultiplier = () => {
-    if (!stakeInfo) return 1;
-    return stakeInfo.boostMultiplier / 100;
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.solana.purple}
-            colors={[Colors.solana.purple]}
-            progressBackgroundColor={Colors.surface}
-          />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Welcome back</Text>
-            <Text style={styles.walletAddress}>
-              {walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.profileButton}>
-            <Icon name="person-circle" size={40} color="#e94560" />
-          </TouchableOpacity>
-        </View>
-
-        {/* AURA Balance Card */}
-        <View style={styles.balanceCard}>
-          <View style={styles.balanceHeader}>
-            <Icon name="logo-solana" size={20} color="#9945ff" />
-            <Text style={styles.balanceLabel}>AURA Balance</Text>
-          </View>
-          <Text style={styles.balanceAmount}>
-            {auraBalance.toLocaleString()} AURA
-          </Text>
-          {stakeInfo && (
-            <View style={styles.boostBadge}>
-              <Icon name="flame" size={14} color="#f59e0b" />
-              <Text style={styles.boostText}>
-                {getBoostMultiplier()}x Boost Active
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Session Control */}
-        <View style={styles.sessionSection}>
-          <Text style={styles.sectionTitle}>Wellness Session</Text>
-          
-          <TouchableOpacity
-            style={[
-              styles.sessionButton,
-              isSessionActive && styles.sessionButtonActive,
-            ]}
-            onPress={toggleSession}
-          >
-            <Animated.View
-              style={[
-                styles.pulseRing,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
-            />
-            <Icon
-              name={isSessionActive ? 'stop' : 'play'}
-              size={32}
-              color={isSessionActive ? '#ef4444' : '#4ade80'}
-            />
-            <Text style={styles.sessionButtonText}>
-              {isSessionActive ? 'End Session' : 'Start Session'}
-            </Text>
-            {isSessionActive && (
-              <Text style={styles.timer}>{formatTime(sessionStats.duration)}</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Grade Badge */}
-          {sessionStats.grade && !isSessionActive && (
-            <View style={[styles.gradeBadge, { backgroundColor: getGradeColor(sessionStats.grade) }]}>
-              <Text style={styles.gradeText}>Grade {sessionStats.grade}</Text>
-              {sessionStats.grade === 'S' && (
-                <Text style={styles.gradeBonus}>+ NFT Earned!</Text>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Live Biometrics */}
-        {isSessionActive && (
-          <View style={styles.biometricsSection}>
-            <Text style={styles.sectionTitle}>Live Biometrics</Text>
-            <View style={styles.biometricGrid}>
-              <BiometricCard
-                icon="heart"
-                label="HRV"
-                value={`${Math.round(sessionStats.hrv)}`}
-                unit="ms"
-                color="#ef4444"
-              />
-              <BiometricCard
-                icon="flash"
-                label="Strain"
-                value={`${Math.round(sessionStats.strain)}`}
-                unit="%"
-                color="#f59e0b"
-              />
-              <BiometricCard
-                icon="eye"
-                label="Focus"
-                value={`${Math.round(sessionStats.focusScore)}`}
-                unit="%"
-                color="#3b82f6"
-              />
-              <BiometricCard
-                icon="trending-up"
-                label="APM"
-                value={`${Math.round(sessionStats.apm)}`}
-                unit=""
-                color="#10b981"
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Quick Actions */}
-        <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            <ActionButton
-              icon="lock-closed"
-              label="Stake AURA"
-              route="Staking"
-              color="#8b5cf6"
-            />
-            <ActionButton
-              icon="trophy"
-              label="NFTs"
-              route="NFTs"
-              color="#f59e0b"
-            />
-            <ActionButton
-              icon="people"
-              label="Governance"
-              route="Governance"
-              color="#3b82f6"
-            />
-            <ActionButton
-              icon="time"
-              label="History"
-              route="History"
-              color="#64748b"
-            />
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-};
-
-const BiometricCard: React.FC<{
+type ActionButtonProps = {
   icon: string;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+};
+
+type BiometricCardProps = {
   label: string;
   value: string;
-  unit: string;
-  color: string;
-}> = ({ icon, label, value, unit, color }) => (
-  <View style={styles.biometricCard}>
-    <Icon name={icon} size={20} color={color} />
-    <Text style={[styles.biometricValue, { color }]}>{value}</Text>
-    <Text style={styles.biometricUnit}>{unit}</Text>
-    <Text style={styles.biometricLabel}>{label}</Text>
-  </View>
-);
-
-const ActionButton: React.FC<{
+  unit?: string;
   icon: string;
-  label: string;
-  route: string;
-  color: string;
-}> = ({ icon, label, color }) => (
-  <TouchableOpacity style={[styles.actionButton, { backgroundColor: `${color}20` }]}>
-    <Icon name={icon} size={24} color={color} />
-    <Text style={[styles.actionLabel, { color }]}>{label}</Text>
+  accent: string;
+};
+
+function formatWallet(address: string | null): string {
+  if (!address) return 'Not connected';
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+}
+
+function formatDuration(totalSeconds: number): string {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function calculateGrade(hrv: number, strain: number, focus: number): 'S' | 'A' | 'B' | 'C' | 'D' {
+  const hrvScore = Math.max(0, Math.min(100, hrv));
+  const strainScore = Math.max(0, Math.min(100, 100 - strain));
+  const focusScore = Math.max(0, Math.min(100, focus));
+  const total = hrvScore * 0.4 + strainScore * 0.3 + focusScore * 0.3;
+
+  if (total >= 92) return 'S';
+  if (total >= 82) return 'A';
+  if (total >= 70) return 'B';
+  if (total >= 58) return 'C';
+  return 'D';
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, onPress, disabled }) => (
+  <TouchableOpacity style={[styles.actionButton, disabled && styles.actionButtonDisabled]} onPress={onPress} disabled={disabled}>
+    <Ionicons name={icon} size={20} color={disabled ? Colors.textSecondary : Colors.textPrimary} />
+    <Text style={[styles.actionButtonLabel, disabled && styles.actionButtonLabelDisabled]}>{label}</Text>
   </TouchableOpacity>
 );
 
-const getGradeColor = (grade: string): string => {
-  switch (grade) {
-    case 'S': return '#f59e0b'; // Gold
-    case 'A': return '#10b981'; // Green
-    case 'B': return '#3b82f6'; // Blue
-    case 'C': return '#64748b'; // Gray
-    case 'D': return '#ef4444'; // Red
-    default: return '#64748b';
-  }
+const BiometricCard: React.FC<BiometricCardProps> = ({ label, value, unit, icon, accent }) => (
+  <View style={styles.biometricCard}>
+    <View style={[styles.biometricIconWrap, { backgroundColor: `${accent}22` }]}>
+      <Ionicons name={icon} size={18} color={accent} />
+    </View>
+    <Text style={styles.biometricLabel}>{label}</Text>
+    <View style={styles.biometricValueRow}>
+      <Text style={styles.biometricValue}>{value}</Text>
+      {unit ? <Text style={styles.biometricUnit}>{unit}</Text> : null}
+    </View>
+  </View>
+);
+
+const Dashboard: React.FC = () => {
+  const { walletAddress, connect, disconnect, isConnecting } = useMobileWallet();
+  const { cluster } = useConnection();
+
+  const { hrv, strain, focus, apm, steps, isMeasuring, start, stop } = useBiometrics();
+  const { balance, loading: auraLoading, refetch: refetchAura } = useAuraBalance();
+  const { stakeInfo, loading: stakeLoading, refetch: refetchStake } = useStakeInfo();
+
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isSessionActive) {
+      stop();
+      return;
+    }
+
+    start();
+    const timer = setInterval(() => setElapsedSeconds((prev) => prev + 1), 1000);
+
+    return () => {
+      clearInterval(timer);
+      stop();
+    };
+  }, [isSessionActive, start, stop]);
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.08, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+
+    if (isSessionActive) {
+      anim.start();
+    } else {
+      pulse.setValue(1);
+      anim.stop();
+    }
+
+    return () => anim.stop();
+  }, [isSessionActive, pulse]);
+
+  const grade = useMemo(() => calculateGrade(hrv, strain, focus), [hrv, strain, focus]);
+
+  const sessionStats = useMemo(
+    () => ({
+      hrv,
+      strain,
+      focus,
+      apm,
+      steps,
+      grade,
+    }),
+    [apm, focus, grade, hrv, steps, strain],
+  );
+
+  const normalizedStake = useMemo(() => {
+    const raw = (stakeInfo ?? null) as any;
+    return {
+      stakedAmount: Number(raw?.stakedAmount ?? raw?.amount ?? 0),
+      rewards: Number(raw?.rewards ?? raw?.pendingRewards ?? 0),
+      apr: Number(raw?.apr ?? raw?.apy ?? 0),
+      tier: String(raw?.tier ?? 'Explorer'),
+    };
+  }, [stakeInfo]);
+
+  const toggleSession = () => {
+    if (isSessionActive) {
+      setIsSessionActive(false);
+      Alert.alert('Session complete', `Grade ${grade} • ${formatDuration(elapsedSeconds)} tracked`);
+      return;
+    }
+
+    setElapsedSeconds(0);
+    setIsSessionActive(true);
+  };
+
+  const handleRefresh = () => {
+    refetchAura();
+    refetchStake();
+  };
+
+  const handleWalletAction = async () => {
+    if (walletAddress) {
+      disconnect();
+      return;
+    }
+
+    try {
+      await connect();
+    } catch (e) {
+      Alert.alert('Wallet connection failed', (e as Error)?.message ?? 'Please try again.');
+    }
+  };
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl tintColor={Colors.solana.green} refreshing={auraLoading || stakeLoading} onRefresh={handleRefresh} />}
+    >
+      <LinearGradient colors={[Colors.solana.purple, '#111827']} style={styles.heroCard}>
+        <View style={styles.heroHeader}>
+          <View>
+            <Text style={styles.heroTitle}>GenoSync</Text>
+            <Text style={styles.heroSubtitle}>{cluster.toUpperCase()} • {formatWallet(walletAddress)}</Text>
+          </View>
+          <TouchableOpacity style={styles.walletButton} onPress={handleWalletAction} disabled={isConnecting}>
+            <Ionicons name={walletAddress ? 'log-out-outline' : 'wallet-outline'} size={18} color={Colors.textPrimary} />
+            <Text style={styles.walletButtonText}>{walletAddress ? 'Disconnect' : isConnecting ? 'Connecting...' : 'Connect'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.balanceRow}>
+          <View>
+            <Text style={styles.balanceLabel}>AURA Balance</Text>
+            <Text style={styles.balanceValue}>{auraLoading ? '--' : balance.toFixed(2)}</Text>
+          </View>
+          <View style={styles.gradeBadge}>
+            <Text style={styles.gradeText}>{sessionStats.grade}</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.sessionCard}>
+        <View style={styles.sessionHeader}>
+          <Text style={styles.sectionTitle}>Live Session</Text>
+          <Text style={styles.sessionState}>{isSessionActive ? (isMeasuring ? 'Measuring' : 'Starting...') : 'Idle'}</Text>
+        </View>
+
+        <Animated.View style={[styles.timerWrap, { transform: [{ scale: pulse }] }]}>
+          <Text style={styles.timerText}>{formatDuration(elapsedSeconds)}</Text>
+        </Animated.View>
+
+        <TouchableOpacity style={[styles.sessionToggle, isSessionActive && styles.sessionToggleActive]} onPress={toggleSession}>
+          <Ionicons name={isSessionActive ? 'pause' : 'play'} size={18} color={Colors.textPrimary} />
+          <Text style={styles.sessionToggleText}>{isSessionActive ? 'End Session' : 'Start Session'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.metricsSection}>
+        <Text style={styles.sectionTitle}>Biometrics</Text>
+        <View style={styles.metricsGrid}>
+          <BiometricCard label="HRV" value={sessionStats.hrv.toFixed(1)} unit="ms" icon="pulse-outline" accent={Colors.solana.green} />
+          <BiometricCard label="Strain" value={sessionStats.strain.toFixed(1)} unit="%" icon="flame-outline" accent={Colors.solana.purple} />
+          <BiometricCard label="Focus" value={sessionStats.focus.toFixed(1)} unit="%" icon="eye-outline" accent="#38BDF8" />
+          <BiometricCard label="APM" value={sessionStats.apm.toFixed(0)} icon="speedometer-outline" accent="#F59E0B" />
+          <BiometricCard label="Steps" value={sessionStats.steps.toFixed(0)} icon="walk-outline" accent="#22D3EE" />
+          <BiometricCard label="Grade" value={sessionStats.grade} icon="ribbon-outline" accent="#F97316" />
+        </View>
+      </View>
+
+      <View style={styles.actionsSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsRow}>
+          <ActionButton icon="refresh-outline" label="Refresh" onPress={handleRefresh} />
+          <ActionButton icon="wallet-outline" label={walletAddress ? 'Wallet' : 'Connect'} onPress={handleWalletAction} disabled={isConnecting} />
+          <ActionButton icon="medkit-outline" label={isSessionActive ? 'Stop' : 'Start'} onPress={toggleSession} />
+        </View>
+      </View>
+
+      <View style={styles.stakeCard}>
+        <View style={styles.stakeHeader}>
+          <Text style={styles.sectionTitle}>Staking</Text>
+          <Text style={styles.stakeTier}>{normalizedStake.tier}</Text>
+        </View>
+        <View style={styles.stakeGrid}>
+          <View style={styles.stakeItem}>
+            <Text style={styles.stakeLabel}>Staked</Text>
+            <Text style={styles.stakeValue}>{stakeLoading ? '--' : normalizedStake.stakedAmount.toFixed(2)} AURA</Text>
+          </View>
+          <View style={styles.stakeItem}>
+            <Text style={styles.stakeLabel}>Rewards</Text>
+            <Text style={styles.stakeValue}>{stakeLoading ? '--' : normalizedStake.rewards.toFixed(2)} AURA</Text>
+          </View>
+          <View style={styles.stakeItem}>
+            <Text style={styles.stakeLabel}>APR</Text>
+            <Text style={styles.stakeValue}>{stakeLoading ? '--' : `${normalizedStake.apr.toFixed(2)}%`}</Text>
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
-  scrollView: {
-    flex: 1,
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.lg,
   },
-  header: {
+  heroCard: {
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.glow,
+  },
+  heroHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+  heroTitle: {
+    color: Colors.textPrimary,
+    ...typography.h1,
   },
-  walletAddress: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 4,
+  heroSubtitle: {
+    color: Colors.textSecondary,
+    marginTop: spacing.xs,
+    ...typography.caption,
   },
-  profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(233, 69, 96, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  balanceCard: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  balanceHeader: {
+  walletButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: spacing.xs,
+    backgroundColor: '#ffffff1a',
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  walletButtonText: {
+    color: Colors.textPrimary,
+    ...typography.caption,
+  },
+  balanceRow: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   balanceLabel: {
-    fontSize: 14,
-    color: '#94a3b8',
-    fontWeight: '500',
+    color: Colors.textSecondary,
+    ...typography.caption,
   },
-  balanceAmount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  boostBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    gap: 6,
-  },
-  boostText: {
-    fontSize: 13,
-    color: '#f59e0b',
-    fontWeight: '600',
-  },
-  sessionSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  sessionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1e293b',
-    paddingVertical: 24,
-    borderRadius: 16,
-    gap: 12,
-    position: 'relative',
-  },
-  sessionButtonActive: {
-    backgroundColor: 'rgba(74, 222, 128, 0.1)',
-    borderWidth: 2,
-    borderColor: '#4ade80',
-  },
-  pulseRing: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(74, 222, 128, 0.3)',
-  },
-  sessionButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  timer: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4ade80',
-    marginLeft: 12,
+  balanceValue: {
+    color: Colors.textPrimary,
+    marginTop: spacing.xs,
+    ...typography.h1,
   },
   gradeBadge: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.solana.green,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   gradeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+    color: '#001b0d',
+    fontWeight: '900',
+    fontSize: 20,
   },
-  gradeBonus: {
-    fontSize: 14,
-    color: '#fff',
-    marginTop: 4,
-    opacity: 0.9,
+  sessionCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.sm,
   },
-  biometricsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+  sessionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  biometricGrid: {
+  sectionTitle: {
+    color: Colors.textPrimary,
+    ...typography.h2,
+  },
+  sessionState: {
+    color: Colors.textSecondary,
+    ...typography.caption,
+  },
+  timerWrap: {
+    marginTop: spacing.lg,
+    alignSelf: 'center',
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: '#ffffff1f',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
+  timerText: {
+    color: Colors.textPrimary,
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  sessionToggle: {
+    marginTop: spacing.lg,
+    backgroundColor: Colors.solana.purple,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  sessionToggleActive: {
+    backgroundColor: '#b91c1c',
+  },
+  sessionToggleText: {
+    color: Colors.textPrimary,
+    ...typography.body,
+    fontWeight: '700',
+  },
+  metricsSection: {
+    gap: spacing.md,
+  },
+  metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
   },
   biometricCard: {
     width: '48%',
-    backgroundColor: '#1e293b',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    ...shadows.sm,
+  },
+  biometricIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
-  },
-  biometricValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  biometricUnit: {
-    fontSize: 12,
-    color: '#64748b',
+    justifyContent: 'center',
   },
   biometricLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 4,
+    color: Colors.textSecondary,
+    marginTop: spacing.sm,
+    ...typography.caption,
+  },
+  biometricValueRow: {
+    marginTop: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+  },
+  biometricValue: {
+    color: Colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  biometricUnit: {
+    color: Colors.textSecondary,
+    ...typography.caption,
   },
   actionsSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
+    gap: spacing.md,
   },
-  actionsGrid: {
+  actionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
   },
   actionButton: {
-    width: '48%',
-    paddingVertical: 20,
-    borderRadius: 12,
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
-  actionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+  actionButtonLabel: {
+    color: Colors.textPrimary,
+    ...typography.caption,
+  },
+  actionButtonLabelDisabled: {
+    color: Colors.textSecondary,
+  },
+  stakeCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    ...shadows.sm,
+  },
+  stakeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  stakeTier: {
+    color: Colors.solana.green,
+    ...typography.caption,
+    fontWeight: '700',
+  },
+  stakeGrid: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  stakeItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ffffff11',
+    paddingVertical: spacing.sm,
+  },
+  stakeLabel: {
+    color: Colors.textSecondary,
+    ...typography.caption,
+  },
+  stakeValue: {
+    color: Colors.textPrimary,
+    ...typography.body,
+    fontWeight: '700',
   },
 });
+
+export default Dashboard;
+
+export const DashboardScreen = Dashboard;

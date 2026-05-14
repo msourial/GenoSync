@@ -1,219 +1,138 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Platform,
   StyleSheet,
-  ScrollView,
+  Text,
+  ToastAndroid,
   TouchableOpacity,
-  Animated,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Icon from 'react-native-vector-icons/Ionicons';
-import { Colors } from '../theme/colors';
-import { spacing, typography, borderRadius } from '../theme/tokens';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
-interface Proposal {
-  id: string;
-  title: string;
-  description: string;
-  status: 'active' | 'passed' | 'rejected' | 'pending';
-  votesFor: number;
-  votesAgainst: number;
-  quorum: number;
-  endTime: number;
+import { useGovernance } from '../hooks/useGovernance';
+import type { Proposal } from '../types';
+import { Colors } from '../theme/colors';
+import { borderRadius, shadows, spacing, typography } from '../theme/tokens';
+
+function statusColor(status: Proposal['status']): string {
+  switch (status) {
+    case 'active':
+      return '#22C55E';
+    case 'passed':
+      return '#06B6D4';
+    case 'rejected':
+      return '#EF4444';
+    default:
+      return '#94A3B8';
+  }
 }
 
-const MOCK_PROPOSALS: Proposal[] = [
-  {
-    id: '1',
-    title: 'Increase S-Grade XP Reward',
-    description: 'Raise AURA reward for S-grade wellness sessions from 100 to 150 AURA to encourage peak performance.',
-    status: 'active',
-    votesFor: 12500,
-    votesAgainst: 3200,
-    quorum: 15000,
-    endTime: Date.now() + 86400000 * 3,
-  },
-  {
-    id: '2',
-    title: 'Add Meditation Challenge',
-    description: 'Introduce a daily 10-minute meditation challenge with 50 AURA reward for completion.',
-    status: 'active',
-    votesFor: 8900,
-    votesAgainst: 1200,
-    quorum: 10000,
-    endTime: Date.now() + 86400000 * 5,
-  },
-  {
-    id: '3',
-    title: '90-Day Staking Minimum',
-    description: 'Require minimum 90-day staking period for governance voting rights.',
-    status: 'passed',
-    votesFor: 21000,
-    votesAgainst: 4500,
-    quorum: 20000,
-    endTime: Date.now() - 86400000,
-  },
-];
+function formatEndTime(ts: number): string {
+  const date = new Date(ts);
+  return date.toLocaleDateString();
+}
 
-export const GovernanceScreen: React.FC = () => {
-  const [votes, setVotes] = useState<Record<string, 'for' | 'against' | null>>({});
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+const Governance: React.FC = () => {
+  const { proposals, loading, vote } = useGovernance();
 
-  const handleVote = (proposalId: string, direction: 'for' | 'against') => {
-    setVotes((prev) => ({ ...prev, [proposalId]: direction }));
-  };
-
-  const getStatusColor = (status: Proposal['status']) => {
-    switch (status) {
-      case 'active': return Colors.info;
-      case 'passed': return Colors.success;
-      case 'rejected': return Colors.error;
-      case 'pending': return Colors.warning;
+  const handleVote = async (id: string, support: boolean) => {
+    try {
+      await vote(id, support);
+      const message = support ? 'Vote submitted: For' : 'Vote submitted: Against';
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(message, ToastAndroid.SHORT);
+      } else {
+        Alert.alert('Vote submitted', message);
+      }
+    } catch (e) {
+      Alert.alert('Vote failed', (e as Error)?.message ?? 'Please try again.');
     }
   };
 
-  const getStatusLabel = (status: Proposal['status']) => {
-    switch (status) {
-      case 'active': return 'Voting Active';
-      case 'passed': return 'Passed';
-      case 'rejected': return 'Rejected';
-      case 'pending': return 'Pending';
-    }
-  };
+  const renderProposal = ({ item }: { item: Proposal }) => {
+    const totalVotes = item.votesFor + item.votesAgainst;
+    const forPct = totalVotes === 0 ? 0 : (item.votesFor / totalVotes) * 100;
+    const againstPct = 100 - forPct;
+    const isActive = item.status === 'active';
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
-  };
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.title}>{item.title}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: `${statusColor(item.status)}22`, borderColor: statusColor(item.status) }]}>
+            <Text style={[styles.statusText, { color: statusColor(item.status) }]}>{item.status.toUpperCase()}</Text>
+          </View>
+        </View>
 
-  const formatTimeLeft = (endTime: number) => {
-    const diff = endTime - Date.now();
-    if (diff <= 0) return 'Ended';
-    const days = Math.floor(diff / 86400000);
-    if (days > 0) return `${days} days left`;
-    const hours = Math.floor(diff / 3600000);
-    return `${hours} hours left`;
+        <Text style={styles.description}>{item.description}</Text>
+
+        <View style={styles.statsRow}>
+          <Text style={styles.statLabel}>For: <Text style={styles.statValue}>{item.votesFor}</Text></Text>
+          <Text style={styles.statLabel}>Against: <Text style={styles.statValue}>{item.votesAgainst}</Text></Text>
+          <Text style={styles.statLabel}>Quorum: <Text style={styles.statValue}>{item.quorum}</Text></Text>
+        </View>
+
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressFor, { width: `${forPct}%` }]} />
+          <View style={[styles.progressAgainst, { width: `${againstPct}%` }]} />
+        </View>
+
+        <View style={styles.footerRow}>
+          <Text style={styles.endTime}>Ends {formatEndTime(item.endTime)}</Text>
+          <View style={styles.voteButtons}>
+            <TouchableOpacity
+              disabled={!isActive}
+              style={[styles.voteBtn, styles.forBtn, !isActive && styles.disabledBtn]}
+              onPress={() => handleVote(item.id, true)}
+            >
+              <Ionicons name="thumbs-up-outline" size={15} color={Colors.textPrimary} />
+              <Text style={styles.voteBtnText}>For</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={!isActive}
+              style={[styles.voteBtn, styles.againstBtn, !isActive && styles.disabledBtn]}
+              onPress={() => handleVote(item.id, false)}
+            >
+              <Ionicons name="thumbs-down-outline" size={15} color={Colors.textPrimary} />
+              <Text style={styles.voteBtnText}>Against</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Governance</Text>
-            <Text style={styles.subtitle}>Shape the future of GenoSync</Text>
-          </View>
-          <View style={styles.powerBadge}>
-            <Icon name="flash" size={14} color={Colors.solana.purple} />
-            <Text style={styles.powerText}>1,000 AURA to propose</Text>
-          </View>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.screenTitle}>Governance</Text>
+        <Ionicons name="shield-checkmark-outline" size={22} color={Colors.solana.green} />
+      </View>
+
+      {loading && proposals.length === 0 ? (
+        <View style={styles.loaderWrap}>
+          <ActivityIndicator color={Colors.solana.green} />
         </View>
+      ) : null}
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>3</Text>
-            <Text style={styles.statLabel}>Active Proposals</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Total Votes</Text>
-          </View>
+      {!loading && proposals.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Ionicons name="chatbox-ellipses-outline" size={34} color={Colors.textSecondary} />
+          <Text style={styles.emptyTitle}>No active proposals</Text>
         </View>
+      ) : null}
 
-        {/* Proposals */}
-        <Text style={styles.sectionTitle}>Active Proposals</Text>
-        {MOCK_PROPOSALS.map((proposal) => {
-          const isExpanded = expandedId === proposal.id;
-          const totalVotes = proposal.votesFor + proposal.votesAgainst;
-          const forPercent = totalVotes > 0 ? (proposal.votesFor / totalVotes) * 100 : 0;
-          const hasVoted = votes[proposal.id];
-          const isEnded = proposal.endTime < Date.now();
-
-          return (
-            <TouchableOpacity
-              key={proposal.id}
-              style={styles.proposalCard}
-              onPress={() => setExpandedId(isExpanded ? null : proposal.id)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.proposalHeader}>
-                <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(proposal.status)}20` }]}>
-                  <View style={[styles.statusDot, { backgroundColor: getStatusColor(proposal.status) }]} />
-                  <Text style={[styles.statusText, { color: getStatusColor(proposal.status) }]}>
-                    {getStatusLabel(proposal.status)}
-                  </Text>
-                </View>
-                {!isEnded && (
-                  <Text style={styles.timeLeft}>{formatTimeLeft(proposal.endTime)}</Text>
-                )}
-              </View>
-
-              <Text style={styles.proposalTitle}>{proposal.title}</Text>
-              <Text style={styles.proposalDesc} numberOfLines={isExpanded ? undefined : 2}>
-                {proposal.description}
-              </Text>
-
-              {/* Vote Bar */}
-              <View style={styles.voteBarContainer}>
-                <View style={[styles.voteBar, { width: `${forPercent}%`, backgroundColor: Colors.success }]} />
-              </View>
-              <View style={styles.voteCounts}>
-                <Text style={styles.voteFor}>{formatNumber(proposal.votesFor)} FOR</Text>
-                <Text style={styles.voteAgainst}>{formatNumber(proposal.votesAgainst)} AGAINST</Text>
-              </View>
-
-              {/* Voting Buttons */}
-              {proposal.status === 'active' && !isEnded && (
-                <View style={styles.voteButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.voteButton,
-                      styles.voteForButton,
-                      hasVoted === 'for' && styles.voteForActive,
-                    ]}
-                    onPress={() => handleVote(proposal.id, 'for')}
-                  >
-                    <Icon name="thumbs-up" size={18} color={hasVoted === 'for' ? Colors.textInverse : Colors.success} />
-                    <Text style={[styles.voteButtonText, hasVoted === 'for' && { color: Colors.textInverse }]}>
-                      {hasVoted === 'for' ? 'Voted For' : 'Vote For'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.voteButton,
-                      styles.voteAgainstButton,
-                      hasVoted === 'against' && styles.voteAgainstActive,
-                    ]}
-                    onPress={() => handleVote(proposal.id, 'against')}
-                  >
-                    <Icon name="thumbs-down" size={18} color={hasVoted === 'against' ? Colors.textInverse : Colors.error} />
-                    <Text style={[styles.voteButtonText, hasVoted === 'against' && { color: Colors.textInverse }]}>
-                      {hasVoted === 'against' ? 'Voted Against' : 'Vote Against'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Create Proposal CTA */}
-        <View style={styles.ctaCard}>
-          <Icon name="create" size={32} color={Colors.solana.purple} />
-          <Text style={styles.ctaTitle}>Have an idea?</Text>
-          <Text style={styles.ctaDesc}>
-            Hold at least 1,000 AURA to create a new governance proposal.
-          </Text>
-          <TouchableOpacity style={styles.ctaButton}>
-            <Text style={styles.ctaButtonText}>Create Proposal</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+      <FlatList
+        data={proposals}
+        renderItem={renderProposal}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
   );
 };
 
@@ -221,211 +140,138 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.screen,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  screenTitle: {
+    color: Colors.textPrimary,
+    ...typography.h1,
+  },
+  listContent: {
+    paddingBottom: spacing.xxxl,
+    gap: spacing.md,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
   title: {
+    color: Colors.textPrimary,
     ...typography.h2,
-    color: Colors.textPrimary,
-  },
-  subtitle: {
-    ...typography.bodySmall,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  powerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${Colors.solana.purple}15`,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: borderRadius.md,
-    gap: 4,
-  },
-  powerText: {
-    ...typography.caption,
-    color: Colors.solana.purple,
-    fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    paddingHorizontal: spacing.screen,
-    marginBottom: spacing.xl,
-  },
-  statCard: {
     flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  statValue: {
-    ...typography.h3,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: Colors.textMuted,
-  },
-  sectionTitle: {
-    ...typography.h4,
-    color: Colors.textPrimary,
-    paddingHorizontal: spacing.screen,
-    marginBottom: spacing.md,
-  },
-  proposalCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginHorizontal: spacing.screen,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  proposalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: borderRadius.sm,
-    gap: 6,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
   },
   statusText: {
-    ...typography.caption,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
-  timeLeft: {
-    ...typography.caption,
-    color: Colors.textMuted,
-  },
-  proposalTitle: {
-    ...typography.h4,
-    color: Colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  proposalDesc: {
-    ...typography.bodySmall,
+  description: {
     color: Colors.textSecondary,
-    lineHeight: 20,
-    marginBottom: spacing.lg,
+    ...typography.body,
+    marginTop: spacing.sm,
   },
-  voteBarContainer: {
-    height: 6,
-    backgroundColor: Colors.errorBg,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  voteBar: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  voteCounts: {
+  statsRow: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  voteFor: {
+  statLabel: {
+    color: Colors.textSecondary,
     ...typography.caption,
-    color: Colors.success,
-    fontWeight: '600',
   },
-  voteAgainst: {
+  statValue: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  progressWrap: {
+    marginTop: spacing.md,
+    width: '100%',
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#1F2937',
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  progressFor: {
+    backgroundColor: '#22C55E',
+    height: '100%',
+  },
+  progressAgainst: {
+    backgroundColor: '#EF4444',
+    height: '100%',
+  },
+  footerRow: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  endTime: {
+    color: Colors.textSecondary,
     ...typography.caption,
-    color: Colors.error,
-    fontWeight: '600',
   },
   voteButtons: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  voteButton: {
-    flex: 1,
+  voteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
+    gap: spacing.xs,
     borderRadius: borderRadius.md,
-    gap: 6,
-    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  voteForButton: {
-    backgroundColor: Colors.successBg,
-    borderColor: `${Colors.success}40`,
+  forBtn: {
+    backgroundColor: '#14532d',
   },
-  voteForActive: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
+  againstBtn: {
+    backgroundColor: '#7f1d1d',
   },
-  voteAgainstButton: {
-    backgroundColor: Colors.errorBg,
-    borderColor: `${Colors.error}40`,
+  disabledBtn: {
+    opacity: 0.45,
   },
-  voteAgainstActive: {
-    backgroundColor: Colors.error,
-    borderColor: Colors.error,
-  },
-  voteButtonText: {
-    ...typography.label,
+  voteBtnText: {
     color: Colors.textPrimary,
+    ...typography.caption,
+    fontWeight: '700',
   },
-  ctaCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xxl,
-    marginHorizontal: spacing.screen,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xxxl,
+  loaderWrap: {
+    paddingVertical: spacing.lg,
+  },
+  emptyWrap: {
+    marginTop: spacing.xxxl,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-    borderStyle: 'dashed',
+    gap: spacing.sm,
   },
-  ctaTitle: {
-    ...typography.h4,
+  emptyTitle: {
     color: Colors.textPrimary,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  ctaDesc: {
-    ...typography.bodySmall,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: 20,
-  },
-  ctaButton: {
-    backgroundColor: Colors.solana.purple,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: borderRadius.md,
-  },
-  ctaButtonText: {
-    ...typography.label,
-    color: Colors.textInverse,
+    ...typography.h2,
   },
 });
+
+export default Governance;
