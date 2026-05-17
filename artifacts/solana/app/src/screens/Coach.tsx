@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AuraChat from '../components/AuraChat';
+import { AuraChat } from '../components/AuraChat';
 import { Colors } from '../theme/colors';
 import { borderRadius, shadows, spacing, typography } from '../theme/tokens';
 

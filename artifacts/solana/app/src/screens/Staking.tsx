@@ -99,7 +99,7 @@ export const StakingScreen: React.FC = () => {
                   <Text style={styles.statLabel}>Time Remaining</Text>
                   <Text style={styles.statValue}>
                     {stakeInfo.isLocked 
-                      ? formatTimeRemaining(stakeInfo.timeRemaining)
+                      ? formatTimeRemaining(stakeInfo.timeRemaining ?? 0)
                       : 'Unlocked'}
                   </Text>
                 </View>
@@ -218,7 +218,7 @@ export const StakingScreen: React.FC = () => {
               <Text style={styles.unstakeTitle}>Unstake AURA</Text>
               <Text style={styles.unstakeDescription}>
                 {stakeInfo?.isLocked 
-                  ? `Your tokens are locked for ${formatTimeRemaining(stakeInfo.timeRemaining)}`
+                  ? `Your tokens are locked for ${formatTimeRemaining(stakeInfo.timeRemaining ?? 0)}`
                   : 'Your tokens are unlocked and ready to unstake'}
               </Text>
               

@@ -5,7 +5,7 @@ import {
   Challenge,
   ChallengeMetric,
   ChallengeStatus,
-} from '../../../sdk/src/challenges';
+} from '../sdk/challenges';
 
 const STORAGE_KEY = '@genosync/challenges';
 

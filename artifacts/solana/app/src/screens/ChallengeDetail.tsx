@@ -95,7 +95,7 @@ const getStatus = (challenge?: ChallengeLike | null): string => normalize(challe
 
 export default function ChallengeDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const route = useRoute<RouteParams>();
+  const route = useRoute() as RouteParams;
   const pda = route.params?.pda;
   const { walletAddress } = useMobileWallet();
 

@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MeditationMode from '../components/MeditationMode';
-import BrainwaveVisualizer from '../components/BrainwaveVisualizer';
+import { BrainwaveVisualizer } from '../components/BrainwaveVisualizer';
 import { Colors } from '../theme/colors';
 import { borderRadius, shadows, spacing, typography } from '../theme/tokens';
 
@@ -99,7 +99,8 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   mintButtonText: {
-    ...(typography.bodyBold as object),
+    ...typography.body,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
 });

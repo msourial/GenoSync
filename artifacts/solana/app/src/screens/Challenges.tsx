@@ -146,7 +146,7 @@ export default function ChallengesScreen() {
         Alert.alert('Invalid challenge', 'Challenge address missing.');
         return;
       }
-      navigation.navigate('ChallengeDetail' as never, { pda } as never);
+      (navigation as any).navigate('ChallengeDetail', { pda });
     },
     [navigation],
   );
@@ -190,7 +190,7 @@ export default function ChallengesScreen() {
             <Text style={styles.emptyText}>Start one now and bring your wellness stats on-chain.</Text>
             <TouchableOpacity
               style={styles.emptyCta}
-              onPress={() => navigation.navigate('CreateChallenge' as never)}
+              onPress={() => (navigation as any).navigate('CreateChallenge')}
               activeOpacity={0.85}
             >
               <Text style={styles.emptyCtaText}>Create Challenge</Text>
@@ -202,7 +202,7 @@ export default function ChallengesScreen() {
       <TouchableOpacity
         activeOpacity={0.9}
         style={styles.fab}
-        onPress={() => navigation.navigate('CreateChallenge' as never)}
+        onPress={() => (navigation as any).navigate('CreateChallenge')}
       >
         <Ionicons name="add" size={28} color={Colors.textPrimary} />
       </TouchableOpacity>
