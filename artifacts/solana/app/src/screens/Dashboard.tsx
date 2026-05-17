@@ -17,6 +17,8 @@ import { useConnection } from '../solana/ConnectionProvider';
 import { useBiometrics } from '../hooks/useBiometrics';
 import { useAuraBalance } from '../hooks/useAuraBalance';
 import { useStakeInfo } from '../hooks/useStakeInfo';
+import { useCameraVision } from '../hooks/useCameraVision';
+import { CameraLens } from '../components/CameraLens';
 import { Colors } from '../theme/colors';
 import { borderRadius, shadows, spacing, typography } from '../theme/tokens';
 
@@ -86,26 +88,41 @@ const Dashboard: React.FC = () => {
   const { hrv, strain, focus, apm, steps, isMeasuring, start, stop } = useBiometrics();
   const { balance, loading: auraLoading, refetch: refetchAura } = useAuraBalance();
   const { stakeInfo, loading: stakeLoading, refetch: refetchStake } = useStakeInfo();
+  const cam = useCameraVision();
+  const camSetActive = cam.setActive;
 
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const pulse = useRef(new Animated.Value(1)).current;
 
+  // Keep imperative actions in a ref so the session effect depends ONLY on
+  // isSessionActive. Otherwise the camera's re-renders churn the identity of
+  // useBiometrics' start/stop, re-running the effect every render → setState
+  // loop ("Maximum update depth exceeded").
+  const actionsRef = useRef({ start, stop, camSetActive });
+  actionsRef.current = { start, stop, camSetActive };
+
   useEffect(() => {
+    const { start: s, stop: st, camSetActive: setCam } = actionsRef.current;
+
     if (!isSessionActive) {
-      stop();
+      st();
+      setCam(false);
       return;
     }
 
-    start();
+    s();
+    setCam(true);
     const timer = setInterval(() => setElapsedSeconds((prev) => prev + 1), 1000);
 
     return () => {
       clearInterval(timer);
-      stop();
+      const a = actionsRef.current;
+      a.stop();
+      a.camSetActive(false);
     };
-  }, [isSessionActive, start, stop]);
+  }, [isSessionActive]);
 
   useEffect(() => {
     const anim = Animated.loop(
@@ -206,6 +223,17 @@ const Dashboard: React.FC = () => {
           </View>
         </View>
       </LinearGradient>
+
+      <View style={styles.visionSection}>
+        <Text style={styles.sectionTitle}>Computer Vision</Text>
+        <Text style={styles.visionSubtitle}>On-device pose & presence detection</Text>
+        <CameraLens
+          active={cam.isActive}
+          permissionGranted={cam.permissionGranted}
+          onRequestPermission={cam.requestAccess}
+          status={cam.status}
+        />
+      </View>
 
       <View style={styles.sessionCard}>
         <View style={styles.sessionHeader}>
@@ -337,6 +365,15 @@ const styles = StyleSheet.create({
     color: '#001b0d',
     fontWeight: '900',
     fontSize: 20,
+  },
+  visionSection: {
+    gap: spacing.sm,
+  },
+  visionSubtitle: {
+    color: Colors.textSecondary,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.xs,
+    ...typography.caption,
   },
   sessionCard: {
     backgroundColor: Colors.surface,

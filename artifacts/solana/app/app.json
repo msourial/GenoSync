@@ -47,6 +47,14 @@
     },
     "updates": {
       "url": "https://u.expo.dev/43c4b107-e6c5-48ba-a6e2-c9b31dfa5973"
-    }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GenoSync uses the camera for on-device computer-vision wellness tracking (pose & presence)."
+        }
+      ]
+    ]
   }
 }
