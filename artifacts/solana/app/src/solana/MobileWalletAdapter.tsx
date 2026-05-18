@@ -121,16 +121,20 @@ export const MobileWalletAdapterProvider: React.FC<{ children: React.ReactNode }
   const disconnect = useCallback(async () => {
     if (!authorization) return;
 
+    // Best-effort: ask the wallet to revoke the auth token. This MWA
+    // round-trip can fail (wallet unavailable, session dropped, user
+    // dismisses the wallet) — that must NOT block the local disconnect,
+    // which is the user's actual intent. So we always clear local state.
     try {
       await transact(async (wallet: Web3MobileWallet) => {
         await wallet.deauthorize({ auth_token: authorization.authToken });
       });
-
-      setAuthorization(null);
-      console.log('[MobileWallet] Disconnected');
     } catch (error) {
-      console.error('[MobileWallet] Disconnect failed:', error);
+      console.warn('[MobileWallet] deauthorize skipped (non-fatal):', error);
     }
+
+    setAuthorization(null);
+    console.log('[MobileWallet] Disconnected');
   }, [authorization]);
 
   // Sign a message (for wellness receipt verification)
