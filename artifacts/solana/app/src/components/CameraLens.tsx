@@ -61,10 +61,10 @@ export const CameraLens: React.FC<CameraLensProps> = ({
   
   return (
     <View style={styles.container}>
-      {/* Back camera: on the Android emulator this renders the virtualscene
-          3D environment (a real, coherent image). On real Seeker hardware
-          either facing works; front (selfie) is the production presence cam. */}
-      {active ? <CameraView style={StyleSheet.absoluteFill} facing="back" /> : (
+      {/* Front (selfie/presence) camera — the production wellness use case.
+          On the emulator this needs AVD hw.camera.front=webcam0 AND macOS
+          camera permission granted to the emulator process. */}
+      {active ? <CameraView style={StyleSheet.absoluteFill} facing="front" /> : (
         <View style={styles.standbyOverlay}>
           <Ionicons name="qr-code-outline" size={48} color={Colors.textSecondary} />
           <Text style={styles.standbyText}>STANDBY</Text>
