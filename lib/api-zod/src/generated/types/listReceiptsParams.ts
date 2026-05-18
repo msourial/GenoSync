@@ -8,7 +8,7 @@
 
 export type ListReceiptsParams = {
   /**
-   * World ID nullifier hash to filter receipts by
+   * Solana wallet address to filter receipts by
    */
-  nullifier: string;
+  wallet: string;
 };

@@ -46,10 +46,10 @@ function buildWorkSteps(receipt: WorkReceipt): ChainStep[] {
   return [
     {
       label: 'Identity Verified',
-      sublabel: 'World ID · Zero-Knowledge Proof',
-      value: truncateHash(receipt.nullifierHash),
-      detail: 'You proved your humanity — privately.',
-      status: 'ok',
+      sublabel: receipt.civicVerified ? 'Civic Pass · Proof of Humanity' : 'Solana Wallet',
+      value: truncateHash(receipt.solanaWallet),
+      detail: receipt.civicVerified ? 'Civic Pass verified — unique human.' : 'Wallet connected.',
+      status: receipt.civicVerified ? 'ok' : 'partial',
       icon: <Shield className="w-3.5 h-3.5" />,
     },
     {
