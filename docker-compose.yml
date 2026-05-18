@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: genosync
+      POSTGRES_PASSWORD: genosync_local
+      POSTGRES_DB: genosync
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genosync"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://genosync:genosync_local@postgres:5432/genosync
+      CORS_ORIGIN: "http://localhost:5173,http://localhost:3001"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./artifacts/api:/app/artifacts/api
+      - ./lib:/app/lib
+      - /app/node_modules
+      - /app/artifacts/api/node_modules
+      - /app/artifacts/api/dist
+    command: sh -c "pnpm install && pnpm run build && pnpm run start"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://localhost:3000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./artifacts/web:/app/artifacts/web
+      - ./lib:/app/lib
+      - /app/node_modules
+      - /app/artifacts/web/node_modules
+      - /app/artifacts/web/dist
+    command: sh -c "pnpm install && pnpm run dev"
+
+volumes:
+  postgres_data:

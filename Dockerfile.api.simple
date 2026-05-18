@@ -1,0 +1,25 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY lib/db/package.json lib/db/
+COPY lib/api-zod/package.json lib/api-zod/
+COPY artifacts/api/package.json artifacts/api/
+
+# Install pnpm and dependencies
+RUN npm install -g pnpm && pnpm install
+
+# Copy source
+COPY lib/ ./lib/
+COPY artifacts/api/ ./artifacts/api/
+
+# Build API (with workspace packages as external)
+RUN cd artifacts/api && node build.mjs
+
+WORKDIR /app/artifacts/api
+
+EXPOSE 3000
+
+CMD ["node", "--enable-source-maps", "./dist/index.mjs"]

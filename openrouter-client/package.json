@@ -1,0 +1,21 @@
+{
+  "name": "@genosync/openrouter-client",
+  "version": "1.0.0",
+  "description": "Smart OpenRouter client with automatic model switching for cost optimization",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "tsx example.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "undici": "^6.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.2"
+  }
+}

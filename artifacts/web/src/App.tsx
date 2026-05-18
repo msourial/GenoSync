@@ -8,9 +8,8 @@ import LockScreen from "@/pages/LockScreen";
 import type { WearableSource, VerifyPayload } from "@/pages/LockScreen";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
-import PrivyProviderWrapper from "@/providers/PrivyProviderWrapper";
+import SolanaProviderWrapper from "@/providers/SolanaProviderWrapper";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { usePrivySafe } from "@/hooks/use-privy-safe";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,23 +22,22 @@ const queryClient = new QueryClient({
 
 function AppRouter() {
   const [location, setLocation] = useLocation();
-  const privy = usePrivySafe();
 
-  // 'bio_ledger_nullifier' is a persistent identity (World ID public key — never deleted).
-  // 'bio_ledger_session' is cleared on logout so a page refresh after locking requires re-verification.
+  // 'genosync_nullifier' is a persistent identity (World ID public key — never deleted).
+  // 'genosync_session' is cleared on logout so a page refresh after locking requires re-verification.
   const [nullifierHash, setNullifierHash] = useState<string | null>(() => {
-    const hasSession = sessionStorage.getItem('bio_ledger_session') === '1';
-    return hasSession ? localStorage.getItem('bio_ledger_nullifier') : null;
+    const hasSession = sessionStorage.getItem('genosync_session') === '1';
+    return hasSession ? localStorage.getItem('genosync_nullifier') : null;
   });
   const [bioSourceConnected, setBioSourceConnected] = useState<boolean>(() => {
-    return localStorage.getItem('bio_ledger_bio_source') === 'connected';
+    return localStorage.getItem('genosync_bio_source') === 'connected';
   });
   const [wearableSource, setWearableSource] = useState<WearableSource>(() => {
-    return (localStorage.getItem('bio_ledger_wearable') as WearableSource) || 'demo';
+    return (localStorage.getItem('genosync_wearable') as WearableSource) || 'demo';
   });
   const [walletAddress, setWalletAddress] = useState<string | null>(() => {
-    const hasSession = sessionStorage.getItem('bio_ledger_session') === '1';
-    return hasSession ? localStorage.getItem('bio_ledger_wallet_address') : null;
+    const hasSession = sessionStorage.getItem('genosync_session') === '1';
+    return hasSession ? localStorage.getItem('genosync_wallet_address') : null;
   });
 
   const handleVerify = (payload: VerifyPayload) => {
@@ -47,29 +45,25 @@ function AppRouter() {
     setBioSourceConnected(payload.bioSourceConnected);
     setWearableSource(payload.wearableSource);
     setWalletAddress(payload.walletAddress);
-    localStorage.setItem('bio_ledger_nullifier', payload.nullifierHash);
-    localStorage.setItem('bio_ledger_bio_source', payload.bioSourceConnected ? 'connected' : 'demo');
-    localStorage.setItem('bio_ledger_wearable', payload.wearableSource);
+    localStorage.setItem('genosync_nullifier', payload.nullifierHash);
+    localStorage.setItem('genosync_bio_source', payload.bioSourceConnected ? 'connected' : 'demo');
+    localStorage.setItem('genosync_wearable', payload.wearableSource);
     if (payload.walletAddress) {
-      localStorage.setItem('bio_ledger_wallet_address', payload.walletAddress);
+      localStorage.setItem('genosync_wallet_address', payload.walletAddress);
     }
-    sessionStorage.setItem('bio_ledger_session', '1');
+    sessionStorage.setItem('genosync_session', '1');
     setLocation("/dashboard");
   };
 
   const handleLogout = async () => {
-    // Logout from Privy wallet if connected
-    if (privy.privyAvailable && privy.authenticated) {
-      try { await privy.logout(); } catch { /* ignore */ }
-    }
     setNullifierHash(null);
     setBioSourceConnected(false);
     setWearableSource('demo');
     setWalletAddress(null);
-    sessionStorage.removeItem('bio_ledger_session');
-    localStorage.removeItem('bio_ledger_bio_source');
-    localStorage.removeItem('bio_ledger_wearable');
-    localStorage.removeItem('bio_ledger_wallet_address');
+    sessionStorage.removeItem('genosync_session');
+    localStorage.removeItem('genosync_bio_source');
+    localStorage.removeItem('genosync_wearable');
+    localStorage.removeItem('genosync_wallet_address');
     setLocation("/");
   };
 
@@ -107,16 +101,16 @@ function AppRouter() {
 function App() {
   return (
     <ErrorBoundary>
-      <PrivyProviderWrapper>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <SolanaProviderWrapper>
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <AppRouter />
             </WouterRouter>
             <Toaster />
           </TooltipProvider>
-        </QueryClientProvider>
-      </PrivyProviderWrapper>
+        </SolanaProviderWrapper>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

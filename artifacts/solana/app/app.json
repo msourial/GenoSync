@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "genosync-solana",
+    "slug": "genosync-solana",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.genosync.solana",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.genosync.solana",
+      "packagingOptions": {
+        "pickFirst": [
+          "**/libc++_shared.so",
+          "**/libjsc.so",
+          "**/libc++_shared.so",
+          "**/libjsc.so"
+        ]
+      },
+      "runtimeVersion": "1.0.0"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "43c4b107-e6c5-48ba-a6e2-c9b31dfa5973"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/43c4b107-e6c5-48ba-a6e2-c9b31dfa5973"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "GenoSync uses the camera for on-device computer-vision wellness tracking (pose & presence)."
+        }
+      ]
+    ]
+  }
+}

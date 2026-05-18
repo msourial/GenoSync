@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (optional - API has in-memory fallback)
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: genosync
+      POSTGRES_PASSWORD: genosync_local
+      POSTGRES_DB: genosync
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genosync"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api.simple
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      # Uses in-memory store if DATABASE_URL not set
+      DATABASE_URL: "${DATABASE_URL:-}"
+      CORS_ORIGIN: "http://localhost:5173,http://localhost:3001"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./artifacts/api:/app/artifacts/api:ro
+      - ./lib:/app/lib:ro
+    command: node dist/index.mjs
+
+  # Frontend
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web.simple
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./artifacts/web:/app/artifacts/web:ro
+      - ./lib:/app/lib:ro
+    command: pnpm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:

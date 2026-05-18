@@ -43,10 +43,11 @@ import MeditationMode, { type MeditationResult } from '@/components/MeditationMo
 import BrainwaveVisualizer from '@/components/BrainwaveVisualizer';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, signMeditationReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
-import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
+import { useListReceipts, useCreateReceipt } from '@genosync/api-client-react';
 import type { WearableSource } from '@/pages/LockScreen';
-import { usePrivySafe } from '@/hooks/use-privy-safe';
-import { getAuraBalance, mintAuraTokens } from '@/lib/aura-token';
+import { mintSolanaAura, solanaCluster, SOLANA_AURA_MINT_CONFIGURED } from '@/lib/solana-aura';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 
 interface DashboardProps {
   nullifierHash: string;
@@ -95,7 +96,7 @@ function AnimatedNumber({ value, className }: { value: number; className?: strin
 }
 
 export default function Dashboard({ nullifierHash, bioSourceConnected, wearableSource, walletAddress, onLogout }: DashboardProps) {
-  const privy = usePrivySafe();
+  const solanaWallet = useWallet();
   const { hrv, strain } = useMockBioData();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const apm = useAPM(isSessionActive);
@@ -433,16 +434,43 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     setXpToast({ xp: xpAwarded, type: challenge.type, method: challenge.verificationMethod });
     xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
 
-    // Attempt to mint AURA tokens on Flow EVM Testnet
-    if (walletAddress && privy.privyAvailable) {
+    // Encrypt the bio receipt off-chain before the on-chain mint
+    if (walletAddress) {
       try {
-        const provider = await privy.getProvider?.();
-        if (provider) {
-          const result = await mintAuraTokens(provider, walletAddress as `0x${string}`, xpAwarded);
-          if (result.hash) setLastMintHash(result.hash);
+        await fetch(`${apiBase}/api/bio/encrypt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            walletAddress,
+            payload: {
+              kind: 'wellness-challenge',
+              challengeType: challenge.type,
+              verificationMethod: challenge.verificationMethod,
+              xpAwarded,
+              completedAt: new Date().toISOString(),
+              chain: `solana-${solanaCluster}`,
+            },
+          }),
+        });
+      } catch (err) {
+        console.warn('[GenoSync] off-chain encryption failed (non-fatal):', err);
+      }
+    }
+
+    // Mint AURA as an SPL token on Solana
+    if (walletAddress) {
+      try {
+        const userPk = new PublicKey(walletAddress);
+        const result = await mintSolanaAura(userPk, xpAwarded);
+        if (result.signature) setLastMintHash(result.signature);
+        setAuraBalance((prev) => String(Number(prev) + xpAwarded));
+        if (result.mocked) {
+          console.log(`[Solana AURA] Demo mint (no on-chain SPL configured): +${xpAwarded} AURA`);
+        } else {
+          console.log(`[Solana AURA] Mint queued on ${result.cluster}: +${result.amount} AURA`);
         }
       } catch (err) {
-        console.warn('[AURA Token] Mint attempt failed:', err);
+        console.warn('[Solana AURA] Mint attempt failed:', err);
       }
     }
 
@@ -461,7 +489,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.4);
     } catch { /* audio not available */ }
-  }, [signWellnessReceipt, walletAddress, privy]);
+  }, [signWellnessReceipt, walletAddress]);
 
   const wellnessCoach = useWellnessCoach({
     isSessionActive,
@@ -480,11 +508,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     }
   }, [wellnessCoach.activeChallenge]);
 
-  // Fetch AURA token balance
-  useEffect(() => {
-    if (!walletAddress) return;
-    getAuraBalance(walletAddress as `0x${string}`).then(setAuraBalance).catch(() => {});
-  }, [walletAddress, wellnessCoach.totalXP]);
+  // AURA balance is incremented locally on each successful mint (see handleWellnessComplete).
+  // Once a real SPL mint authority is configured, this can be replaced with a getTokenAccountBalance call.
 
   const handleBreathingComplete = useCallback((xp: number, before: { hrv: number; blinkRate: number; headStability: number }, after: { hrv: number; blinkRate: number; headStability: number }) => {
     // Complete the breath challenge if active
@@ -1162,15 +1187,36 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                 <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
               </motion.div>
               {walletAddress && (
-                <div className="flex items-center gap-1.5 px-3 py-1 border border-teal-400/30 bg-teal-500/8 rounded-full w-fit">
-                  <span className="font-pixel text-[7px] text-teal-300 tracking-widest">FLOW EVM</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 border border-fuchsia-400/30 bg-fuchsia-500/8 rounded-full w-fit">
+                  <span className="font-pixel text-[7px] text-fuchsia-300 tracking-widest">SOLANA {solanaCluster.toUpperCase()}</span>
                   <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-                  <span className="font-pixel text-[7px] text-teal-400/80 tracking-wider">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  <span className="font-pixel text-[7px] text-fuchsia-400/80 tracking-wider">
+                    {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
                   </span>
                 </div>
               )}
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 border border-fuchsia-400/30 bg-fuchsia-500/8 rounded-full w-fit"
+                title={SOLANA_AURA_MINT_CONFIGURED ? 'Wellness XP minted as SPL AURA on Solana' : 'Demo mint — configure VITE_SOLANA_AURA_MINT for real on-chain mints'}
+              >
+                <span className="font-pixel text-[7px] text-fuchsia-300 tracking-widest">SPL AURA</span>
+                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                <span className="font-pixel text-[7px] text-fuchsia-400/80 tracking-wider">
+                  {SOLANA_AURA_MINT_CONFIGURED ? 'ON-CHAIN' : 'DEMO'}
+                </span>
+              </div>
             </div>
+            {walletAddress && solanaWallet.publicKey && (
+              <div className="mt-3 max-w-md rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-500/10 to-purple-500/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-pixel text-[7px] text-fuchsia-300/70 tracking-widest">SOLANA IDENTITY</span>
+                  <span className="font-pixel text-[7px] text-muted-foreground/40">· {solanaCluster.toUpperCase()}</span>
+                </div>
+                <div className="font-mono text-[11px] text-fuchsia-200/90 break-all">
+                  {solanaWallet.publicKey.toBase58()}
+                </div>
+              </div>
+            )}
             {/* Wellness XP progress bar — always visible in header */}
             {(() => {
               const xp = wellnessCoach.totalXP + sessionBonusXP;

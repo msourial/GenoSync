@@ -1,0 +1,22 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY lib/api-client-react/package.json lib/api-client-react/
+COPY lib/api-zod/package.json lib/api-zod/
+COPY artifacts/web/package.json artifacts/web/
+
+# Install pnpm and dependencies
+RUN npm install -g pnpm && pnpm install
+
+# Copy source
+COPY lib/ ./lib/
+COPY artifacts/web/ ./artifacts/web/
+
+WORKDIR /app/artifacts/web
+
+EXPOSE 5173
+
+CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]

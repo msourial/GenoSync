@@ -55,3 +55,9 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Gradle build artifacts
+.gradle/
+
+# Claude Code local state
+.claude/

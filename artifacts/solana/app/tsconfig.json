@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": [
+      "ES2020"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@solana/web3.js": [
+        "node_modules/@solana/web3.js"
+      ],
+      "@solana/spl-token": [
+        "node_modules/@solana/spl-token"
+      ],
+      "@coral-xyz/anchor": [
+        "node_modules/@coral-xyz/anchor"
+      ]
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "outDir": "./lib",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "moduleResolution": "node"
+  },
+  "include": [
+    "src/**/*",
+    "App.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib",
+    "android",
+    "ios"
+  ],
+  "extends": "expo/tsconfig.base"
+}

@@ -1,8 +1,8 @@
 kind = "web"
 previewPath = "/"
-title = "Bio-Ledger"
+title = "GenoSync"
 version = "1.0.0"
-id = "artifacts/bio-ledger"
+id = "artifacts/genosync"
 router = "path"
 
 [[integratedSkills]]
@@ -15,11 +15,11 @@ paths = [ "/" ]
 localPort = 26258
 
 [services.development]
-run = "pnpm --filter @workspace/bio-ledger run dev"
+run = "pnpm --filter @genosync/web run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/bio-ledger", "run", "build" ]
-publicDir = "artifacts/bio-ledger/dist/public"
+build = [ "pnpm", "--filter", "@genosync/web", "run", "build" ]
+publicDir = "artifacts/genosync/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]

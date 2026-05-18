@@ -1,0 +1,28 @@
+FROM node:20-alpine
+
+# Install pnpm
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY lib/db/package.json lib/db/
+COPY lib/api-zod/package.json lib/api-zod/
+COPY artifacts/api/package.json artifacts/api/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY lib/ ./lib/
+COPY artifacts/api/ ./artifacts/api/
+
+# Build the API
+RUN pnpm run build
+
+WORKDIR /app/artifacts/api
+
+EXPOSE 3000
+
+CMD ["node", "--enable-source-maps", "./dist/index.mjs"]
