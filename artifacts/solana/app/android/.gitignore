@@ -14,3 +14,7 @@ local.properties
 
 # Bundle artifacts
 *.jsbundle
+
+# Release signing secrets — NEVER commit (debug.keystore stays tracked)
+keystore.properties
+app/genosync-release.keystore
