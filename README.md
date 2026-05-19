@@ -13,10 +13,10 @@ GenoSync leverages the Solana ecosystem to provide a high-performance, mobile-na
 
 ```mermaid
 graph TD
-    subgraph Mobile_Device [Solana Mobile (Saga/Seeker)]
+    subgraph Mobile_Device ["Solana Mobile (Saga/Seeker)"]
         A[React Native App]
-        B[Solana Mobile Stack (SMS)]
-        C[Seed Vault (Secure Enclave)]
+        B["Solana Mobile Stack (SMS)"]
+        C["Seed Vault (Secure Enclave)"]
         A --> B
         B --> C
     end
@@ -24,7 +24,7 @@ graph TD
     subgraph Solana_Blockchain [Solana Mainnet]
         D[Anchor Staking Program]
         E[Bubblegum cNFT Program]
-        F[SPL Governance (Realms)]
+        F["SPL Governance (Realms)"]
         G[AURA SPL Token]
     end
 
