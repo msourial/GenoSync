@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { CameraView } from 'expo-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Colors } from '../theme/colors';
@@ -10,227 +10,406 @@ interface CameraLensProps {
   onRequestPermission: () => void;
   permissionGranted: boolean;
   status: string;
-  compact?: boolean;
+  faceDetected?: boolean;
+  blinkCount?: number;
+  blinkRate?: number;
+  headMotion?: number;
+  stability?: number;
 }
 
-export const CameraLens: React.FC<CameraLensProps> = ({
+// Faithful mobile port of the web app's "Sovereign Lens" HUD: PRESENCE /
+// BLINKS / HEAD-motion bar / STABILITY in a 2x2 grid next to a circular
+// camera with dual scan rings + purple glow + status dot. All animations
+// use the native driver and there is ZERO setState in the render path —
+// this component sits in Dashboard's render tree and must not drive parent
+// re-renders.
+
+const PURPLE = Colors.solana.purple;
+const PURPLE_LIGHT = Colors.solana.purpleLight;
+const HUD = 96;
+
+const StatusDot: React.FC<{ analyzing: boolean }> = ({ analyzing }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!analyzing) {
+      scale.setValue(1);
+      return;
+    }
+    const a = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 1.25, duration: 1000, useNativeDriver: true }),
+        Animated.timing(scale, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ]),
+    );
+    a.start();
+    return () => a.stop();
+  }, [analyzing, scale]);
+  return (
+    <Animated.View
+      style={[
+        styles.statusDot,
+        { backgroundColor: analyzing ? PURPLE : Colors.textMuted, transform: [{ scale }] },
+      ]}
+    >
+      <Ionicons name={analyzing ? 'eye' : 'ellipse-outline'} size={9} color="#fff" />
+    </Animated.View>
+  );
+};
+
+const Tile: React.FC<{
+  label: string;
+  value: string;
+  valueColor: string;
+  sub?: string;
+  subColor?: string;
+}> = ({ label, value, valueColor, sub, subColor }) => (
+  <View style={styles.tile}>
+    <Text style={styles.tileLabel}>{label}</Text>
+    <Text style={[styles.tileValue, { color: valueColor }]}>{value}</Text>
+    {sub ? <Text style={[styles.tileSub, subColor ? { color: subColor } : null]}>{sub}</Text> : null}
+  </View>
+);
+
+// HEAD-motion tile renders a percentage progress bar. Bar width is animated
+// off the JS state path so updates stay smooth without re-rendering parents.
+const HeadTile: React.FC<{ value: number; active: boolean }> = ({ value, active }) => {
+  const width = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(width, {
+      toValue: Math.max(0, Math.min(100, value)),
+      duration: 400,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [value, width]);
+
+  const pct = Math.round(Math.max(0, Math.min(100, value)));
+  return (
+    <View style={styles.tile}>
+      <Text style={styles.tileLabel}>Head</Text>
+      <View style={styles.barTrack}>
+        <Animated.View
+          style={[
+            styles.barFill,
+            { width: width.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) },
+          ]}
+        />
+      </View>
+      <Text style={[styles.tileValueSmall, { color: active ? PURPLE_LIGHT : Colors.textMuted }]}>
+        {active ? `${pct}%` : '—'}
+      </Text>
+    </View>
+  );
+};
+
+const CameraLensBase: React.FC<CameraLensProps> = ({
   active,
   onRequestPermission,
   permissionGranted,
   status,
-  compact = false
+  faceDetected = true,
+  blinkCount = 0,
+  blinkRate = 0,
+  headMotion = 0,
+  stability = 0,
 }) => {
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+  const spinSlow = useRef(new Animated.Value(0)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+  const scan = useRef(new Animated.Value(0)).current;
+
+  const analyzing = active && permissionGranted;
+  const presenceOk = analyzing && faceDetected;
 
   useEffect(() => {
-    let cancelled = false;
-    const animateScanLine = () => {
-      if (cancelled) return;
-      scanLineAnim.setValue(0);
-      Animated.timing(scanLineAnim, {
-        toValue: 1,
-        duration: 2200,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished && !cancelled) {
-          setTimeout(animateScanLine, 500);
-        }
-      });
-    };
-
-    if (active && permissionGranted) {
-      animateScanLine();
+    if (!analyzing) {
+      spin.setValue(0);
+      spinSlow.setValue(0);
+      glow.setValue(0);
+      scan.setValue(0);
+      return;
     }
+    const loops = [
+      Animated.loop(
+        Animated.timing(spin, { toValue: 1, duration: 3000, easing: Easing.linear, useNativeDriver: true }),
+      ),
+      Animated.loop(
+        Animated.timing(spinSlow, { toValue: 1, duration: 6000, easing: Easing.linear, useNativeDriver: true }),
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glow, { toValue: 1, duration: 1100, useNativeDriver: true }),
+          Animated.timing(glow, { toValue: 0, duration: 1100, useNativeDriver: true }),
+        ]),
+      ),
+      Animated.loop(
+        Animated.timing(scan, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ),
+    ];
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [analyzing, spin, spinSlow, glow, scan]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [active, permissionGranted, scanLineAnim]);
-  
   if (!permissionGranted) {
     return (
-      <View style={[styles.container, styles.permissionDeniedContainer]}>
-        <Ionicons name="videocam-off-outline" size={48} color={Colors.textSecondary} />
-        <Text style={styles.permissionDeniedText}>Camera access needed</Text>
-        <TouchableOpacity style={styles.enableButton} onPress={onRequestPermission}>
-          <Text style={styles.enableButtonText}>Enable Camera</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={styles.permission}>
+          <Ionicons name="videocam-off-outline" size={40} color={Colors.textSecondary} />
+          <Text style={styles.permissionText}>Camera access needed</Text>
+          <TouchableOpacity style={styles.enableBtn} onPress={onRequestPermission}>
+            <Text style={styles.enableBtnText}>Enable Camera</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
-  
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const rotateRev = spinSlow.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
+  const glowScale = glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] });
+  const scanY = scan.interpolate({ inputRange: [0, 1], outputRange: [-HUD / 2 + 6, HUD / 2 - 6] });
+
+  const statusText = analyzing ? 'ANALYZING' : status === 'NO CAM' ? 'NO CAM' : 'STANDBY';
+  const statusColor = analyzing ? PURPLE_LIGHT : status === 'NO CAM' ? Colors.error : Colors.textMuted;
+
+  const stabilityPct = Math.round(Math.max(0, Math.min(100, stability)));
+
   return (
     <View style={styles.container}>
-      {/* Front (selfie/presence) camera — the production wellness use case.
-          On the emulator this needs AVD hw.camera.front=webcam0 AND macOS
-          camera permission granted to the emulator process. */}
-      {active ? <CameraView style={StyleSheet.absoluteFill} facing="front" /> : (
-        <View style={styles.standbyOverlay}>
-          <Ionicons name="qr-code-outline" size={48} color={Colors.textSecondary} />
-          <Text style={styles.standbyText}>STANDBY</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Ionicons name="scan-outline" size={13} color={PURPLE_LIGHT} />
+          <Text style={styles.headerLabel}>Sovereign Lens</Text>
         </View>
-      )}
-      
-      {/* Overlay elements */}
-      <View pointerEvents="none" style={styles.overlayContainer}>
-        {/* Corner brackets */}
-        <View style={[styles.cornerBracket, styles.topLeftBracket]} />
-        <View style={[styles.cornerBracket, styles.topRightBracket]} />
-        <View style={[styles.cornerBracket, styles.bottomLeftBracket]} />
-        <View style={[styles.cornerBracket, styles.bottomRightBracket]} />
-        
-        {/* Status indicator */}
-        <View style={styles.statusIndicatorContainer}>
-          <View style={styles.statusPill}>
-            <View style={[styles.statusDot, status === 'ANALYZING' ? styles.analyzingDot : styles.standbyDot]} />
-            <Text style={styles.statusText}>{status}</Text>
-          </View>
-        </View>
-        
-        {/* Scan line */}
-        {active && (
-          <Animated.View 
+        <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
+      </View>
+
+      <View style={styles.body}>
+        {/* Circular camera HUD */}
+        <View style={styles.hudWrap}>
+          <Animated.View
             style={[
-              styles.scanLine, 
+              styles.glowRing,
               {
-                transform: [{
-                  translateY: scanLineAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 300] // Adjust based on container height
-                  })
-                }]
-              }
+                opacity: analyzing ? glowOpacity : 0.15,
+                transform: [{ scale: analyzing ? glowScale : 1 }],
+                shadowColor: PURPLE,
+              },
             ]}
           />
-        )}
-        
-        {/* Grid overlay */}
-        <View style={styles.gridOverlay} />
+          <Animated.View style={[styles.ringSlow, { transform: [{ rotate: rotateRev }] }]} />
+          <Animated.View style={[styles.ring, { transform: [{ rotate }] }]} />
+          <View style={styles.hudClip}>
+            {active ? (
+              <CameraView style={StyleSheet.absoluteFill} facing="front" />
+            ) : (
+              <View style={styles.standby}>
+                <Ionicons name="camera-outline" size={28} color={Colors.textMuted} />
+              </View>
+            )}
+            <View
+              pointerEvents="none"
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: analyzing ? 'rgba(153,69,255,0.10)' : 'rgba(148,163,184,0.08)' },
+              ]}
+            />
+            {analyzing && (
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.scanLine, { transform: [{ translateY: scanY }] }]}
+              />
+            )}
+          </View>
+          <StatusDot analyzing={analyzing} />
+        </View>
+
+        {/* Metric grid */}
+        <View style={styles.grid}>
+          <View style={styles.gridRow}>
+            <Tile
+              label="PRESENCE"
+              value={presenceOk ? 'OK' : '—'}
+              valueColor={presenceOk ? PURPLE_LIGHT : Colors.textMuted}
+            />
+            <Tile
+              label="BLINKS"
+              value={analyzing ? String(blinkCount) : '—'}
+              valueColor={analyzing ? PURPLE_LIGHT : Colors.textMuted}
+              sub={analyzing && blinkRate > 0 ? `${blinkRate}/min` : undefined}
+              subColor={Colors.textMuted}
+            />
+          </View>
+          <View style={styles.gridRow}>
+            <HeadTile value={analyzing ? headMotion : 0} active={analyzing} />
+            <Tile
+              label="STABILITY"
+              value={analyzing ? `${stabilityPct}%` : '—'}
+              valueColor={analyzing ? (stabilityPct < 70 ? Colors.warning : PURPLE_LIGHT) : Colors.textMuted}
+              sub={analyzing ? (presenceOk ? '⬡ SECURE' : '⚠ BREACH') : undefined}
+              subColor={presenceOk ? PURPLE_LIGHT : Colors.error}
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
 };
 
+export const CameraLens = React.memo(CameraLensBase);
+
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    aspectRatio: 16/11,
     backgroundColor: Colors.surface,
     borderRadius: borderRadius.xl,
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ffffff14',
+    padding: spacing.md,
     ...shadows.glow,
   },
-  permissionDeniedContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  permissionDeniedText: {
-    color: Colors.textPrimary,
-    fontSize: typography.body.fontSize,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  enableButton: {
-    backgroundColor: Colors.solana.purple,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.sm,
-  },
-  enableButtonText: {
-    color: Colors.textPrimary,
-    fontWeight: 'bold',
-  },
-  standbyOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
-  standbyText: {
-    color: Colors.textSecondary,
-    marginTop: spacing.sm,
-    fontSize: typography.caption.fontSize,
-  },
-  overlayContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  cornerBracket: {
-    position: 'absolute',
-    borderColor: Colors.solana.green,
-    borderWidth: 2,
-    width: 20,
-    height: 20,
-  },
-  topLeftBracket: {
-    top: spacing.md,
-    left: spacing.md,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  topRightBracket: {
-    top: spacing.md,
-    right: spacing.md,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-  },
-  bottomLeftBracket: {
-    bottom: spacing.md,
-    left: spacing.md,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-  },
-  bottomRightBracket: {
-    bottom: spacing.md,
-    right: spacing.md,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-  },
-  statusIndicatorContainer: {
-    position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
-  },
-  statusPill: {
+  header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 20,
-    minWidth: 80,
+    marginBottom: spacing.md,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: spacing.xs,
-  },
-  analyzingDot: {
-    backgroundColor: Colors.solana.green,
-  },
-  standbyDot: {
-    backgroundColor: Colors.textSecondary,
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerLabel: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   statusText: {
-    color: Colors.textPrimary,
-    fontSize: typography.caption.fontSize,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  body: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  hudWrap: {
+    width: HUD + 16,
+    height: HUD + 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glowRing: {
+    position: 'absolute',
+    width: HUD + 14,
+    height: HUD + 14,
+    borderRadius: (HUD + 14) / 2,
+    borderWidth: 2,
+    borderColor: PURPLE,
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  ringSlow: {
+    position: 'absolute',
+    width: HUD + 12,
+    height: HUD + 12,
+    borderRadius: (HUD + 12) / 2,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderTopColor: '#B87AFF55',
+    borderLeftColor: '#B87AFF22',
+  },
+  ring: {
+    position: 'absolute',
+    width: HUD + 6,
+    height: HUD + 6,
+    borderRadius: (HUD + 6) / 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderTopColor: PURPLE,
+    borderRightColor: '#9945FF55',
+  },
+  hudClip: {
+    width: HUD,
+    height: HUD,
+    borderRadius: HUD / 2,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    transform: [{ scaleX: -1 }],
+  },
+  standby: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceDark,
   },
   scanLine: {
     position: 'absolute',
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: `${Colors.solana.green}80`, // 50% opacity
-    zIndex: 1,
+    top: HUD / 2,
+    backgroundColor: PURPLE_LIGHT,
+    opacity: 0.7,
   },
-  gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    // Add subtle grid pattern if needed
-    backgroundColor: 'transparent',
+  statusDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  grid: { flex: 1, gap: spacing.sm },
+  gridRow: { flexDirection: 'row', gap: spacing.sm },
+  tile: {
+    flex: 1,
+    backgroundColor: '#ffffff0d',
+    borderWidth: 1,
+    borderColor: '#ffffff14',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  tileLabel: {
+    color: Colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  tileValue: { fontSize: 15, fontWeight: '800' },
+  tileValueSmall: { fontSize: 13, fontWeight: '800' },
+  tileSub: { color: PURPLE_LIGHT, fontSize: 10, fontWeight: '700' },
+  barTrack: {
+    height: 4,
+    width: '100%',
+    backgroundColor: '#ffffff14',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 2,
+    marginBottom: 1,
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: PURPLE,
+    borderRadius: 2,
+  },
+  permission: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+  },
+  permissionText: { color: Colors.textPrimary, ...typography.body },
+  enableBtn: {
+    backgroundColor: Colors.solana.purple,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    marginTop: spacing.xs,
+  },
+  enableBtnText: { color: Colors.textPrimary, fontWeight: '700' },
 });

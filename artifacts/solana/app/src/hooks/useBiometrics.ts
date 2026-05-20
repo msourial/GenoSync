@@ -7,6 +7,12 @@ type TimedValue = { t: number; v: number };
 
 const WINDOW_MS = 5000;
 const GRAVITY_BASELINE = 1;
+// Sensors fire at ~60 Hz by default; that many setState/sec re-renders the
+// whole Dashboard and is the dominant in-session jank source. Sample at 5 Hz
+// and only push React state at most every 500ms (2 Hz) — still smooth for
+// HRV/strain proxies, ~30x fewer renders.
+const SENSOR_INTERVAL_MS = 200;
+const EMIT_MS = 500;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
@@ -42,6 +48,8 @@ export function useBiometrics(): {
   const gyroWindowRef = useRef<TimedValue[]>([]);
   const baselineRef = useRef<number>(GRAVITY_BASELINE);
   const cumulativeStrainRef = useRef<number>(0);
+  const lastAccelEmitRef = useRef<number>(0);
+  const lastGyroEmitRef = useRef<number>(0);
 
   const resetMetrics = useCallback(() => {
     accelWindowRef.current = [];
@@ -72,6 +80,7 @@ export function useBiometrics(): {
     resetMetrics();
 
     try {
+      Accelerometer.setUpdateInterval(SENSOR_INTERVAL_MS);
       accelSubRef.current = Accelerometer.addListener(({ x, y, z }) => {
         const now = Date.now();
         const mag = Math.sqrt(x * x + y * y + z * z);
@@ -82,17 +91,19 @@ export function useBiometrics(): {
         const aboveBaseline = Math.max(0, mag - baselineRef.current);
         cumulativeStrainRef.current += Math.abs(aboveBaseline);
 
-        const strainScore = clamp(cumulativeStrainRef.current * 3, 0, 100);
-        setStrain(strainScore);
-
         accelWindowRef.current.push({ t: now, v: mag });
         accelWindowRef.current = accelWindowRef.current.filter((p) => now - p.t <= WINDOW_MS);
 
-        const accelValues = accelWindowRef.current.map((p) => p.v);
-        const accelVar = variance(accelValues);
+        // Throttle React state — accumulation above runs every sample, but the
+        // re-render only happens at most every EMIT_MS.
+        if (now - lastAccelEmitRef.current < EMIT_MS) return;
+        lastAccelEmitRef.current = now;
 
-        const activityPerMinute = clamp(accelVar * 60 * 100, 0, 999);
-        setApm(activityPerMinute);
+        const strainScore = clamp(cumulativeStrainRef.current * 3, 0, 100);
+        setStrain(strainScore);
+
+        const accelVar = variance(accelWindowRef.current.map((p) => p.v));
+        setApm(clamp(accelVar * 60 * 100, 0, 999));
 
         if (!gyroSubRef.current) {
           const stillnessFocus = clamp(100 / (1 + accelVar * 80), 0, 100);
@@ -106,12 +117,16 @@ export function useBiometrics(): {
     }
 
     try {
+      Gyroscope.setUpdateInterval(SENSOR_INTERVAL_MS);
       gyroSubRef.current = Gyroscope.addListener(({ x, y, z }) => {
         const now = Date.now();
         const angMag = Math.sqrt(x * x + y * y + z * z);
 
         gyroWindowRef.current.push({ t: now, v: angMag });
         gyroWindowRef.current = gyroWindowRef.current.filter((p) => now - p.t <= WINDOW_MS);
+
+        if (now - lastGyroEmitRef.current < EMIT_MS) return;
+        lastGyroEmitRef.current = now;
 
         const gyroVar = variance(gyroWindowRef.current.map((p) => p.v));
         const focusScore = clamp(100 / (1 + gyroVar * 50), 0, 100);
